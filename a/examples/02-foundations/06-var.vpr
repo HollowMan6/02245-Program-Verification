@@ -1,0 +1,6 @@
+method intro() 
+{
+    var x: Int 
+    x := x * x 
+    assert x >= 0
+}

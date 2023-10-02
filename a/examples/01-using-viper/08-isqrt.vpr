@@ -1,0 +1,7 @@
+method triple(x: Int) returns (r: Int)
+  requires x > 0
+  ensures r == 3 * x
+
+
+method isqrt(x: Int) returns (r: Int)
+  // TODO

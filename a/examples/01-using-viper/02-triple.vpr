@@ -1,0 +1,9 @@
+method triple(x: Int, flag: Bool) returns (r: Int) {
+    if (flag) {
+        r := 3 * x
+    } else {
+        var y:Int 
+        y := x + x
+        r := x + y
+    }
+}

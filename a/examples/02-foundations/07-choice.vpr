@@ -1,0 +1,23 @@
+ method triple(x: Int, y: Int) 
+    requires x > 0 && y > 0
+    ensures x * x > 0 || x + y > 0
+ {
+    var star: Bool
+    if (star) {
+        assert x * x > 0
+    } else {
+        assert x + y > 0
+    }
+}
+
+ method triple2(x: Int, y: Int) 
+    requires x > 0 && y > 0
+    ensures x > 0
+ {
+    var star: Bool
+    if (star) {
+        assert x > 0
+    } else {
+        assert y > 0
+    }
+}

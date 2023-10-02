@@ -1,0 +1,17 @@
+// Exercise: what's wrong with these annotations?
+
+method triple() 
+{
+    var x: Int 
+    var y: Int 
+
+    // true
+    x := 0
+    // x == 0
+    // x == 0 && y == 6
+    x := x + 2
+    // x == 2 && y == 6
+    // x + y == 8
+    y := x + y 
+    // y == 8
+}

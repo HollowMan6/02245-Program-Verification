@@ -1,0 +1,14 @@
+/*
+ * Write different implementations for the method below.
+ * Find one that does not compute the maximum.
+ */
+method max(x: Int, y: Int) returns (r: Int)
+	ensures r >= x
+	ensures r >= y // conjunction of postconditions
+{
+	if (x > y) {
+		r := x + 1
+	} else {
+	    r := y
+    }
+}

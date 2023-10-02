@@ -1,0 +1,6 @@
+method triple(x: Int) returns (r: Int)
+  requires x > 3
+  ensures r > x
+{ 
+    r := 3 * x
+}

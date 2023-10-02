@@ -1,0 +1,4 @@
+method triple(x: Int) returns (r: Int) 
+{
+   r := 3 * x
+}

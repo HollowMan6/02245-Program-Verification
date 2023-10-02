@@ -1,0 +1,8 @@
+// Viper model of abs(x)
+method abs(x: Int) returns (r: Int)
+  ensures x >= 0 ==> r == x
+  ensures x <= 0 ==> r == -x
+{
+  if (x < 0) { r := -x } else { r := x }
+}
+

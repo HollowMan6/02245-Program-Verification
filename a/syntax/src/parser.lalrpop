@@ -1,0 +1,175 @@
+use crate::ast::*;
+use crate::parse::ParseError;
+
+grammar;
+
+extern {
+    type Error = ParseError;
+}
+
+match {
+    r"\s*" => { }, // The default whitespace skipping is disabled an `ignore pattern` is specified
+    r"//[^\n\r]*[\n\r]*" => { }, // Skip `// comments`
+    r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => { },  // Skip `/* comments */`
+
+    r"[a-zA-Z_][a-zA-Z_0-9]*",
+    r"[0-9]+",
+    r#""[^"]*""#,
+
+    "-",
+    ",",
+    "::",
+    ":",
+    ":=",
+    "!",
+    "!=",
+    "(",
+    ")",
+    "{",
+    "}",
+    "*",
+    "/",
+    "&&",
+    "+",
+    "<",
+    "<=",
+    "==",
+    "==>",
+    ">",
+    ">=",
+    "||",
+    "assert",
+    "assume",
+    "Bool",
+    "else",
+    "ensures",
+    "exists",
+    "false",
+    "forall",
+    "function",
+    "if",
+    "Int",
+    "invariant",
+    "method",
+    "requires",
+    "result",
+    "returns",
+    "true",
+    "var",
+    "while",
+}
+
+Sep<S, T>: Vec<T> = {
+    <mut xs:(<T> S)*> <x:T?> => {
+        if let Some(x) = x {
+            xs.push(x);
+        }
+        xs
+    }
+};
+NonEmptySep<S, T>: Vec<T> = {
+    <mut xs:(<T> S)*> <x:T> => {
+        xs.push(x);
+        xs
+    }
+};
+
+pub Document: Document = <items:DocumentItem*> => Document { <> };
+
+DocumentItem: DocumentItem = {
+    Method => DocumentItem::Method(<>),
+    Function => DocumentItem::Function(<>),
+}
+
+Method: Method = {
+    "method" <name:Ident> "(" <inputs:Sep<",", Var>> ")"
+        <outputs:("returns" "(" <Sep<",", Var>> ")")?>
+        <specifications:Specification*>
+        <body:Body?>
+        => Method { name, inputs, outputs: outputs.unwrap_or_default(), specifications, body },
+}
+
+Function: Function = {
+    "function" <name:Ident> "(" <inputs:Sep<",", Var>> ")"
+        ":" <ret_ty:Type>
+        <specifications:Specification*>
+        <body:("{" <Expr> "}")?>
+        => Function { name, inputs, ret_ty, specifications, body },
+}
+
+Specification: Specification = {
+    "requires" <Expr> => Specification::Requires(<>),
+    "ensures" <Expr> => Specification::Ensures(<>),
+}
+
+Body: Body = {
+    "{" <statements:Statement*> "}" => Body { <> },
+}
+
+Statement: Statement = {
+    "assert" <Expr> => Statement::Assert(<>),
+    "assume" <Expr> => Statement::Assume(<>),
+    "var" <Var> <(":=" <Expr>)?> => Statement::Var(<>),
+    "if" "(" <Expr> ")" <Body> <("else" <Body>)?> => Statement::If(<>),
+    "while" "(" <condition:Expr> ")" <invariants:("invariant" <Expr>)*> <body:Body> => Statement::While { <> },
+    <l:@L> <vars:NonEmptySep<",", Ident>> ":=" <expr:Expr> <r:@R> =>? {
+        match expr.kind() {
+            EK::Call(f, args) => Ok(Statement::MethodAssignment(vars, f.clone(), args.clone())),
+            _ if vars.len() > 1 =>
+                Err(lalrpop_util::ParseError::User {
+                    error: ParseError::ExprAssignmentToMultipleVars {
+                        src: "REPLACE ME".to_string(),
+                        err_span: Span::start_end(l, r),
+                    },
+                }),
+            _ => Ok(Statement::Assignment(vars[0].clone(), expr)),
+        }
+    },
+}
+
+Var: Var = <name:Ident> ":" <ty:Type> => Var { <> };
+
+Type: Type = {
+    "Int" => Type::Int,
+    "Bool" => Type::Bool,
+}
+
+TopExpr = Expr;
+Expr: Expr = {
+    #[precedence(level="0")]
+    <p:@L> "true" <q:@R> => Expr::bool(true, Some(Span::start_end(p, q))),
+    <p:@L> "false" <q:@R> => Expr::bool(false, Some(Span::start_end(p, q))),
+    <p:@L> "result" <q:@R> => EK::Result.parsed(Type::Bool, p, q),
+    <p:@L> <i:Integer> <q:@R> => EK::Integer(i).parsed(Type::Int, p, q),
+    <p:@L> <i:Ident> <q:@R> => EK::Var(i).parsed(Type::Int, p, q),
+    "(" <TopExpr> ")",
+    <p:@L> <f:Ident> "(" <args:Sep<",", TopExpr>> ")" <q:@R> => EK::Call(f, args).parsed(Type::Int, p, q),
+    #[precedence(level="20")]
+    <p:@L> "-" <r:Expr> <q:@R> => EK::Unary(UOp::Minus, r).parsed(Type::Int, p, q),
+    <p:@L> "!" <r:Expr> <q:@R> => EK::Unary(UOp::Not, r).parsed(Type::Bool, p, q),
+    #[precedence(level="30")] #[assoc(side="left")]
+    <l:Expr> "*" <r:Expr> => l.binary_op(Op::Times, &r),
+    <l:Expr> "/" <r:Expr> => l.binary_op(Op::Divide, &r),
+    #[precedence(level="40")] #[assoc(side="left")]
+    <l:Expr> "+" <r:Expr> => l.binary_op(Op::Plus, &r),
+    <l:Expr> "-" <r:Expr> => l.binary_op(Op::Minus, &r),
+    #[precedence(level="50")] #[assoc(side="left")]
+    <l:Expr> "<=" <r:Expr> => l._leq(&r),
+    <l:Expr> "<" <r:Expr> => l._lt(&r),
+    <l:Expr> ">=" <r:Expr> => l._geq(&r),
+    <l:Expr> ">" <r:Expr> => l._gt(&r),
+    <l:Expr> "==" <r:Expr> => l._eq(&r),
+    <l:Expr> "!=" <r:Expr> => l._neq(&r),
+    #[precedence(level="60")]
+    <p:@L> "exists" <v:Var> "::" <e:Expr> <q:@R> => EK::Quantification(Quantifier::Exists, v, e).parsed(Type::Bool, p, q),
+    <p:@L> "forall" <v:Var> "::" <e:Expr> <q:@R> => EK::Quantification(Quantifier::Forall, v, e).parsed(Type::Bool, p, q),
+    #[precedence(level="70")] #[assoc(side="left")]
+    <l:Expr> "||" <r:Expr> => l.binary_op(Op::Or, &r),
+    #[precedence(level="71")] #[assoc(side="left")]
+    <l:Expr> "&&" <r:Expr> => l.binary_op(Op::And, &r),
+    #[precedence(level="80")] #[assoc(side="left")]
+    <l:Expr> "==>" <r:Expr> => l.binary_op(Op::Implies, &r),
+}
+
+Integer: String = r"[0-9]+" => <>.to_string();
+Ident: Ident = <l:@L> <i:r"[a-zA-Z_][a-zA-Z_0-9]*"> <r:@R> => Ident { text: i.to_string(), span: Span::start_end(l, r) };

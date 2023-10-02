@@ -1,0 +1,68 @@
+/*
+ * Exercise Part 1
+ * Consider the method maxSum, given by the signature
+ * method maxSum(x: Int, y: Int) returns (sum: Int, max: Int),
+ * which is supposed to store the sum of x and y in sum and the
+ * maximum of x and y in max, respectively.
+ *
+ * a) Give a formal specification in terms of pre- and postcondition for maxSum.
+ * b) Implement another method that calls maxSum with arguments 1723 and 42.
+ *    Test your specification by adding an assertion what you expect the output parameters to be
+ *    after the call; improve your specification in case the assertion fails.
+ * c) Implement the method maxSum
+ */
+
+ method maxSum(x: Int, y: Int) returns (sum: Int, max: Int)
+    requires true
+    ensures sum == x + y
+    ensures (x >= y ==> max == x) && (x < y ==> max == y)
+{
+    sum := x + y
+    if (x >= y) {
+        max := x
+    } else {
+        max := y
+    }
+}
+
+method test()
+{
+    var sum: Int
+    var max: Int
+    sum, max := maxSum(1723, 42)
+    assert sum == 1765
+    assert max == 1723
+}
+
+/*
+ * Exercise Part 2
+ * Now, consider a method that tries to determine the values of maxSum's input
+ * parameters from the output parameters, i.e. it reconstructs x and y from sum and max.
+ * It is given by the following signature:
+ * method reconstructMaxSum(sum: Int, max: Int) returns (x: Int, y: Int)
+ * d) Give a postcondition specifying the intended behaviour of reconstructMaxSum.
+ * e) Can you give an implementation of reconstructMaxSum?
+ *    If not, can you implement reconstructMaxSum after adding a precondition?
+ * f) Test your implementation.
+ */
+
+method reconstructMaxSum(sum: Int, max: Int) returns (x: Int, y: Int)
+    requires sum <= max * 2
+    ensures x + y == sum
+    ensures x == max || y == max
+    ensures (x >= y ==> max == x) && (x < y ==> max == y)
+{
+    x := max
+    y := sum - max
+}
+
+method testReconstruction(x: Int, y: Int)
+{
+    var sum: Int
+    var max: Int
+    sum, max := maxSum(x, y)
+    var a: Int
+    var b: Int
+    a, b := reconstructMaxSum(sum, max)
+    assert (x == a && y == b) || (x == b && y == a)
+}

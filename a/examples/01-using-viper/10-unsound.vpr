@@ -1,0 +1,10 @@
+method unsound(x: Int)
+  returns (r: Int)
+  ensures r != r
+
+
+method test() {
+  var a: Int
+  a := unsound(17)
+  assert 2 != 2
+}

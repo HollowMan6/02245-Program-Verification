@@ -1,0 +1,14 @@
+method left(x: Int) returns (y: Int)
+  requires x == 1
+  ensures y < 42
+{
+  y := 2 * x + 1
+}
+
+
+method right(x: Int) returns (y: Int)
+  requires x == 1
+  ensures y <= 17
+{
+  y := 2 * x + 1
+}

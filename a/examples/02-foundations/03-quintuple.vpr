@@ -1,0 +1,10 @@
+// Argue as rigorously as possible that the Floyd-Hoare triple described by the following Viper method is valid.
+method quintuple(x: Int) returns (r: Int)
+    requires x > 0 
+    ensures r > 4 * x
+{
+    var y: Int := 2 * x
+    var z: Int := 3 * x
+    r := y + z
+}
+
