@@ -2,6 +2,12 @@ use miette::Result;
 pub use syntax::{self, ast};
 
 fn main() -> Result<()> {
+    // Z3 usage example
+    use z3::{ast::Int, SatResult};
+
+    let cfg = z3::Config::new();
+    let ctx = z3::Context::new(&cfg);
+
     // Parsing example
     for p in std::env::args().skip(1) {
         let doc_ast = syntax::parse_file(p)?;
@@ -16,7 +22,7 @@ fn main() -> Result<()> {
                         specifications,
                         body,
                     } = method;
-                    match parse_specs(specifications) {
+                    match parse_specs(&ctx, specifications) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
@@ -25,7 +31,7 @@ fn main() -> Result<()> {
                         Some(b) => b,
                         None => continue,
                     };
-                    match parse_body(b) {
+                    match parse_body(&ctx, b) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
@@ -39,13 +45,13 @@ fn main() -> Result<()> {
                         specifications,
                         body,
                     } = function;
-                    match parse_specs(specifications) {
+                    match parse_specs(&ctx, specifications) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
                     match body {
                         Some(body) => {
-                            match parse_expr(body) {
+                            match parse_expr(&ctx, body) {
                                 Ok(()) => {}
                                 Err(_) => continue,
                             };
@@ -57,11 +63,6 @@ fn main() -> Result<()> {
         }
     }
 
-    // Z3 usage example
-    use z3::{ast::Int, SatResult};
-
-    let cfg = z3::Config::new();
-    let ctx = z3::Context::new(&cfg);
     let solver = z3::Solver::new(&ctx);
 
     let x = Int::new_const(&ctx, "x");
@@ -99,7 +100,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn parse_type(ty: ast::Type) -> Result<()> {
+fn parse_type(ctx: &z3::Context, ty: ast::Type) -> Result<()> {
     match ty {
         ast::Type::Bool => {
             println!("Type: Bool");
@@ -112,17 +113,17 @@ fn parse_type(ty: ast::Type) -> Result<()> {
 }
 
 // Parse specifications
-fn parse_specs(specs: Vec<ast::Specification>) -> Result<()> {
+fn parse_specs(ctx: &z3::Context, specs: Vec<ast::Specification>) -> Result<()> {
     for spec in specs {
         match spec {
             ast::Specification::Ensures(ensures) => {
-                match parse_expr(ensures) {
+                match parse_expr(&ctx, ensures) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
             }
             ast::Specification::Requires(requires) => {
-                match parse_expr(requires) {
+                match parse_expr(&ctx, requires) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
@@ -132,21 +133,21 @@ fn parse_specs(specs: Vec<ast::Specification>) -> Result<()> {
     Ok(())
 }
 
-fn parse_expr(expr: ast::Expr) -> Result<()> {
+fn parse_expr(ctx: &z3::Context, expr: ast::Expr) -> Result<()> {
     let kind = expr.kind;
     let ty = expr.ty;
-    match parse_expr_kind(kind) {
+    match parse_expr_kind(&ctx, kind) {
         Ok(()) => {}
         Err(_) => {}
     };
-    match parse_type(ty) {
+    match parse_type(&ctx, ty) {
         Ok(()) => {}
         Err(_) => {}
     };
     Ok(())
 }
 
-fn parse_expr_kind(expr_kind: Box<ast::ExprKind>) -> Result<()> {
+fn parse_expr_kind(ctx: &z3::Context, expr_kind: Box<ast::ExprKind>) -> Result<()> {
     match *expr_kind {
         ast::ExprKind::Boolean(b) => {
             println!("Boolean: {}", b);
@@ -163,7 +164,7 @@ fn parse_expr_kind(expr_kind: Box<ast::ExprKind>) -> Result<()> {
         ast::ExprKind::Call(ident, exprs) => {
             println!("Call: {}", ident.text);
             for expr in exprs {
-                match parse_expr(expr) {
+                match parse_expr(&ctx, expr) {
                     Ok(()) => {}
                     Err(_) => {}
                 };
@@ -178,13 +179,13 @@ fn parse_expr_kind(expr_kind: Box<ast::ExprKind>) -> Result<()> {
                     println!("UnaryOp: !");
                 }
             }
-            match parse_expr(expr) {
+            match parse_expr(&ctx, expr) {
                 Ok(()) => {}
                 Err(_) => {}
             };
         }
         ast::ExprKind::Binary(expr1, op, expr2) => {
-            match parse_expr(expr1) {
+            match parse_expr(&ctx, expr1) {
                 Ok(()) => {}
                 Err(_) => {}
             };
@@ -229,7 +230,7 @@ fn parse_expr_kind(expr_kind: Box<ast::ExprKind>) -> Result<()> {
                     println!("BinaryOp: *");
                 }
             }
-            match parse_expr(expr2) {
+            match parse_expr(&ctx, expr2) {
                 Ok(()) => {}
                 Err(_) => {}
             };
@@ -245,11 +246,11 @@ fn parse_expr_kind(expr_kind: Box<ast::ExprKind>) -> Result<()> {
             }
             let ast::Var { name, ty } = var;
             println!("Var: {}", name.text);
-            match parse_type(ty) {
+            match parse_type(&ctx, ty) {
                 Ok(()) => {}
                 Err(_) => {}
             };
-            match parse_expr(expr) {
+            match parse_expr(&ctx, expr) {
                 Ok(()) => {}
                 Err(_) => {}
             };
@@ -259,19 +260,19 @@ fn parse_expr_kind(expr_kind: Box<ast::ExprKind>) -> Result<()> {
 }
 
 // Parse body
-fn parse_body(body: ast::Body) -> Result<()> {
+fn parse_body(ctx: &z3::Context, body: ast::Body) -> Result<()> {
     for stmt in body.statements {
         match stmt {
             ast::Statement::Var(var, expr) => {
                 let ast::Var { name, ty } = var;
                 println!("Var: {}", name.text);
-                match parse_type(ty) {
+                match parse_type(&ctx, ty) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
                 match expr {
                     Some(expr) => {
-                        match parse_expr(expr) {
+                        match parse_expr(&ctx, expr) {
                             Ok(()) => {}
                             Err(_) => continue,
                         };
@@ -280,20 +281,20 @@ fn parse_body(body: ast::Body) -> Result<()> {
                 }
             }
             ast::Statement::Assert(expr) => {
-                match parse_expr(expr) {
+                match parse_expr(&ctx, expr) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
             }
             ast::Statement::Assume(expr) => {
-                match parse_expr(expr) {
+                match parse_expr(&ctx, expr) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
             }
             ast::Statement::Assignment(ident, expr) => {
                 println!("Assignment: {}", ident.text);
-                match parse_expr(expr) {
+                match parse_expr(&ctx, expr) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
@@ -304,24 +305,24 @@ fn parse_body(body: ast::Body) -> Result<()> {
                     println!("Var: {}", ident.text);
                 }
                 for expr in exprs {
-                    match parse_expr(expr) {
+                    match parse_expr(&ctx, expr) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
                 }
             }
             ast::Statement::If(expr, body, body_opt) => {
-                match parse_expr(expr) {
+                match parse_expr(&ctx, expr) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
-                match parse_body(body) {
+                match parse_body(&ctx, body) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
                 match body_opt {
                     Some(body) => {
-                        match parse_body(body) {
+                        match parse_body(&ctx, body) {
                             Ok(()) => {}
                             Err(_) => continue,
                         };
@@ -334,17 +335,17 @@ fn parse_body(body: ast::Body) -> Result<()> {
                 invariants,
                 body,
             } => {
-                match parse_expr(condition) {
+                match parse_expr(&ctx, condition) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
                 for invariant in invariants {
-                    match parse_expr(invariant) {
+                    match parse_expr(&ctx, invariant) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
                 }
-                match parse_body(body) {
+                match parse_body(&ctx, body) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
