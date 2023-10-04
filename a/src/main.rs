@@ -1,5 +1,6 @@
 use miette::Result;
 pub use syntax::{self, ast};
+use std::collections::HashMap;
 
 fn main() -> Result<()> {
     // Z3 usage example
@@ -17,12 +18,18 @@ fn main() -> Result<()> {
                     // Access fields of method
                     let ast::Method {
                         name: _,
-                        inputs: _,
-                        outputs: _,
+                        inputs,
+                        outputs,
                         specifications,
                         body,
                     } = method;
-                    match parse_specs(&ctx, specifications) {
+
+                    // Define variables hashmap and store it in context
+                    let mut variables = HashMap::new();
+                    parse_params(&ctx, &mut variables, inputs)?;
+                    parse_params(&ctx, &mut variables, outputs)?;
+
+                    match parse_specs(&ctx, &mut variables, specifications) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
@@ -31,7 +38,7 @@ fn main() -> Result<()> {
                         Some(b) => b,
                         None => continue,
                     };
-                    match parse_body(&ctx, b) {
+                    match parse_body(&ctx, &mut variables, b) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
@@ -40,18 +47,23 @@ fn main() -> Result<()> {
                     // Access fields of function
                     let ast::Function {
                         name: _,
-                        inputs: _,
+                        inputs,
                         ret_ty: _,
                         specifications,
                         body,
                     } = function;
-                    match parse_specs(&ctx, specifications) {
+
+                    // Define variables hashmap and store it in context
+                    let mut variables: HashMap<String, Variable> = HashMap::new();
+                    parse_params(&ctx, &mut variables, inputs)?;
+
+                    match parse_specs(&ctx, &mut variables, specifications) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
                     match body {
                         Some(body) => {
-                            match parse_expr(&ctx, body) {
+                            match parse_expr(&ctx, &mut variables, body) {
                                 Ok(()) => {}
                                 Err(_) => continue,
                             };
@@ -100,30 +112,39 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn parse_type(ctx: &z3::Context, ty: ast::Type) -> Result<()> {
-    match ty {
-        ast::Type::Bool => {
-            println!("Type: Bool");
-        }
-        ast::Type::Int => {
-            println!("Type: Int");
-        }
+enum Variable<'a> {
+    Bool(z3::ast::Bool<'a>),
+    Int(z3::ast::Int<'a>),
+}
+
+fn parse_type<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, name: String, ty: ast::Type) {
+    let variable = match ty {
+        ast::Type::Bool => Variable::Bool(z3::ast::Bool::new_const(&ctx, name.clone())),
+        ast::Type::Int => Variable::Int(z3::ast::Int::new_const(&ctx, name.clone())),
+    };
+    variables.insert(name, variable);
+}
+
+fn parse_params<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, params: Vec<ast::Var>) -> Result<()> {
+    for param in params {
+        let ast::Var { name, ty } = param;
+        parse_type(&ctx, variables, name.text, ty);
     }
     Ok(())
 }
 
 // Parse specifications
-fn parse_specs(ctx: &z3::Context, specs: Vec<ast::Specification>) -> Result<()> {
+fn parse_specs<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, specs: Vec<ast::Specification>) -> Result<()> {
     for spec in specs {
         match spec {
             ast::Specification::Ensures(ensures) => {
-                match parse_expr(&ctx, ensures) {
+                match parse_expr(&ctx, variables, ensures) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
             }
             ast::Specification::Requires(requires) => {
-                match parse_expr(&ctx, requires) {
+                match parse_expr(&ctx, variables, requires) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
@@ -133,21 +154,21 @@ fn parse_specs(ctx: &z3::Context, specs: Vec<ast::Specification>) -> Result<()> 
     Ok(())
 }
 
-fn parse_expr(ctx: &z3::Context, expr: ast::Expr) -> Result<()> {
+fn parse_expr<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, expr: ast::Expr) -> Result<()> {
     let kind = expr.kind;
-    let ty = expr.ty;
-    match parse_expr_kind(&ctx, kind) {
+    // let ty = expr.ty;
+    match parse_expr_kind(&ctx, variables, kind) {
         Ok(()) => {}
         Err(_) => {}
     };
-    match parse_type(&ctx, ty) {
-        Ok(()) => {}
-        Err(_) => {}
-    };
+    // match parse_type(&ctx, ty) {
+    //     Ok(()) => {}
+    //     Err(_) => {}
+    // };
     Ok(())
 }
 
-fn parse_expr_kind(ctx: &z3::Context, expr_kind: Box<ast::ExprKind>) -> Result<()> {
+fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, expr_kind: Box<ast::ExprKind>) -> Result<(), std::io::Error> {
     match *expr_kind {
         ast::ExprKind::Boolean(b) => {
             println!("Boolean: {}", b);
@@ -164,7 +185,7 @@ fn parse_expr_kind(ctx: &z3::Context, expr_kind: Box<ast::ExprKind>) -> Result<(
         ast::ExprKind::Call(ident, exprs) => {
             println!("Call: {}", ident.text);
             for expr in exprs {
-                match parse_expr(&ctx, expr) {
+                match parse_expr(&ctx, variables, expr) {
                     Ok(()) => {}
                     Err(_) => {}
                 };
@@ -179,13 +200,13 @@ fn parse_expr_kind(ctx: &z3::Context, expr_kind: Box<ast::ExprKind>) -> Result<(
                     println!("UnaryOp: !");
                 }
             }
-            match parse_expr(&ctx, expr) {
+            match parse_expr(&ctx, variables, expr) {
                 Ok(()) => {}
                 Err(_) => {}
             };
         }
         ast::ExprKind::Binary(expr1, op, expr2) => {
-            match parse_expr(&ctx, expr1) {
+            match parse_expr(&ctx, variables, expr1) {
                 Ok(()) => {}
                 Err(_) => {}
             };
@@ -230,7 +251,7 @@ fn parse_expr_kind(ctx: &z3::Context, expr_kind: Box<ast::ExprKind>) -> Result<(
                     println!("BinaryOp: *");
                 }
             }
-            match parse_expr(&ctx, expr2) {
+            match parse_expr(&ctx, variables, expr2) {
                 Ok(()) => {}
                 Err(_) => {}
             };
@@ -246,11 +267,8 @@ fn parse_expr_kind(ctx: &z3::Context, expr_kind: Box<ast::ExprKind>) -> Result<(
             }
             let ast::Var { name, ty } = var;
             println!("Var: {}", name.text);
-            match parse_type(&ctx, ty) {
-                Ok(()) => {}
-                Err(_) => {}
-            };
-            match parse_expr(&ctx, expr) {
+            parse_type(&ctx, variables, name.text, ty);
+            match parse_expr(&ctx, variables, expr) {
                 Ok(()) => {}
                 Err(_) => {}
             };
@@ -260,19 +278,16 @@ fn parse_expr_kind(ctx: &z3::Context, expr_kind: Box<ast::ExprKind>) -> Result<(
 }
 
 // Parse body
-fn parse_body(ctx: &z3::Context, body: ast::Body) -> Result<()> {
+fn parse_body<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, body: ast::Body) -> Result<()> {
     for stmt in body.statements {
         match stmt {
             ast::Statement::Var(var, expr) => {
                 let ast::Var { name, ty } = var;
                 println!("Var: {}", name.text);
-                match parse_type(&ctx, ty) {
-                    Ok(()) => {}
-                    Err(_) => continue,
-                };
+                parse_type(&ctx, variables, name.text, ty);
                 match expr {
                     Some(expr) => {
-                        match parse_expr(&ctx, expr) {
+                        match parse_expr(&ctx, variables, expr) {
                             Ok(()) => {}
                             Err(_) => continue,
                         };
@@ -281,20 +296,20 @@ fn parse_body(ctx: &z3::Context, body: ast::Body) -> Result<()> {
                 }
             }
             ast::Statement::Assert(expr) => {
-                match parse_expr(&ctx, expr) {
+                match parse_expr(&ctx, variables, expr) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
             }
             ast::Statement::Assume(expr) => {
-                match parse_expr(&ctx, expr) {
+                match parse_expr(&ctx, variables, expr) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
             }
             ast::Statement::Assignment(ident, expr) => {
                 println!("Assignment: {}", ident.text);
-                match parse_expr(&ctx, expr) {
+                match parse_expr(&ctx, variables, expr) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
@@ -305,24 +320,24 @@ fn parse_body(ctx: &z3::Context, body: ast::Body) -> Result<()> {
                     println!("Var: {}", ident.text);
                 }
                 for expr in exprs {
-                    match parse_expr(&ctx, expr) {
+                    match parse_expr(&ctx, variables, expr) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
                 }
             }
             ast::Statement::If(expr, body, body_opt) => {
-                match parse_expr(&ctx, expr) {
+                match parse_expr(&ctx, variables, expr) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
-                match parse_body(&ctx, body) {
+                match parse_body(&ctx, variables, body) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
                 match body_opt {
                     Some(body) => {
-                        match parse_body(&ctx, body) {
+                        match parse_body(&ctx, variables, body) {
                             Ok(()) => {}
                             Err(_) => continue,
                         };
@@ -335,17 +350,17 @@ fn parse_body(ctx: &z3::Context, body: ast::Body) -> Result<()> {
                 invariants,
                 body,
             } => {
-                match parse_expr(&ctx, condition) {
+                match parse_expr(&ctx, variables, condition) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
                 for invariant in invariants {
-                    match parse_expr(&ctx, invariant) {
+                    match parse_expr(&ctx, variables, invariant) {
                         Ok(()) => {}
                         Err(_) => continue,
                     };
                 }
-                match parse_body(&ctx, body) {
+                match parse_body(&ctx, variables, body) {
                     Ok(()) => {}
                     Err(_) => continue,
                 };
