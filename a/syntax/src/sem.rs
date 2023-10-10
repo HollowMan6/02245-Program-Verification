@@ -401,7 +401,18 @@ impl<'a> AnalysisContext<'a> {
                     None
                 };
 
-                Ok(Statement::If(cond.clone(), then, else_))
+                Ok(Statement::Choice(then, else_))
+            }
+            Statement::Choice(then, else_) => {
+                let then = self.analyze_body(then)?;
+
+                let else_ = if let Some(else_) = else_.as_ref() {
+                    Some(self.analyze_body(else_)?)
+                } else {
+                    None
+                };
+
+                Ok(Statement::Choice(then, else_))
             }
             Statement::While {
                 condition,

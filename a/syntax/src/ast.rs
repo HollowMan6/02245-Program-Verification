@@ -180,6 +180,9 @@ pub enum Statement {
         /// Loop body.
         body: Body,
     },
+    /// A nondeterministic choice statement.
+    ///
+    Choice(Body, Option<Body>),
 }
 
 /// A variable declaration.
