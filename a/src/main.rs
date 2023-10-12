@@ -179,11 +179,12 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
             return Ok(Value::Int(i.parse().unwrap()));
         }
         ast::ExprKind::Result => {
+            // ask about this.
             println!("Result");
         }
         ast::ExprKind::Var(ident) => {
             println!("Var: {}", ident.text);
-            return Ok();
+            return Ok(Value::Var(ident.text));
         }
         ast::ExprKind::Call(ident, exprs) => {
             println!("Call: {}", ident.text);
@@ -275,7 +276,7 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
             };
         }
     }
-    Ok(())
+    Ok(Value::Bool(true))
 }
 
 // Parse body
