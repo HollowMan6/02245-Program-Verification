@@ -142,13 +142,14 @@ fn parse_specs<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variabl
         match spec {
             ast::Specification::Ensures(ensures) => {
                 match parse_expr(&ctx, variables, ensures) {
-                    Ok(()) => {}
+                    Ok(_value) => {
+                    }
                     Err(_) => continue,
                 };
             }
             ast::Specification::Requires(requires) => {
                 match parse_expr(&ctx, variables, requires) {
-                    Ok(()) => {}
+                    Ok(_value) => {}
                     Err(_) => continue,
                 };
             }
@@ -161,7 +162,7 @@ fn parse_expr<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable
     let kind = expr.kind;
     let ty = expr.ty;
     match parse_expr_kind(&ctx, variables, kind) {
-        Ok(()) => {}
+        Ok(_value) => {}
         Err(_) => {}
     };
     match ty {
@@ -183,7 +184,6 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
             println!("Result");
         }
         ast::ExprKind::Var(ident) => {
-            println!("Var: {}", ident.text);
             return Ok(Value::Var(ident.text));
         }
         ast::ExprKind::Call(ident, exprs) => {
@@ -203,17 +203,17 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
                 }
             }
             match parse_expr(&ctx, variables, expr) {
-                Ok(()) => {}
+                Ok(_value) => {}
                 Err(_) => {}
             };
         }
         ast::ExprKind::Binary(expr1, op, expr2) => {
             match parse_expr(&ctx, variables, expr1) {
-                Ok(()) => {}
+                Ok(_value) => {}
                 Err(_) => {}
             };
             match parse_expr(&ctx, variables, expr2) {
-                Ok(()) => {}
+                Ok(_value) => {}
                 Err(_) => {}
             };
             match op {
@@ -271,7 +271,7 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
             println!("Var: {}", name.text);
             parse_type(&ctx, variables, name.text, ty);
             match parse_expr(&ctx, variables, expr) {
-                Ok(()) => {}
+                Ok(_value) => {}
                 Err(_) => {}
             };
         }
@@ -290,7 +290,7 @@ fn parse_body<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable
                 match expr {
                     Some(expr) => {
                         match parse_expr(&ctx, variables, expr) {
-                            Ok(()) => {}
+                            Ok(_value) => {}
                             Err(_) => continue,
                         };
                     }
@@ -299,20 +299,20 @@ fn parse_body<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable
             }
             ast::Statement::Assert(expr) => {
                 match parse_expr(&ctx, variables, expr) {
-                    Ok(()) => {}
+                    Ok(_value) => {}
                     Err(_) => continue,
                 };
             }
             ast::Statement::Assume(expr) => {
                 match parse_expr(&ctx, variables, expr) {
-                    Ok(()) => {}
+                    Ok(_value) => {}
                     Err(_) => continue,
                 };
             }
             ast::Statement::Assignment(ident, expr) => {
                 println!("Assignment: {}", ident.text);
                 match parse_expr(&ctx, variables, expr) {
-                    Ok(()) => {}
+                    Ok(_value) => {}
                     Err(_) => continue,
                 };
             }
@@ -323,14 +323,14 @@ fn parse_body<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable
                 }
                 for expr in exprs {
                     match parse_expr(&ctx, variables, expr) {
-                        Ok(()) => {}
+                        Ok(_value) => {}
                         Err(_) => continue,
                     };
                 }
             }
             ast::Statement::If(expr, body, body_opt) => {
                 match parse_expr(&ctx, variables, expr) {
-                    Ok(()) => {}
+                    Ok(_value) => {}
                     Err(_) => continue,
                 };
                 match parse_body(&ctx, variables, body) {
@@ -353,12 +353,12 @@ fn parse_body<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable
                 body,
             } => {
                 match parse_expr(&ctx, variables, condition) {
-                    Ok(()) => {}
+                    Ok(_value) => {}
                     Err(_) => continue,
                 };
                 for invariant in invariants {
                     match parse_expr(&ctx, variables, invariant) {
-                        Ok(()) => {}
+                        Ok(_value) => {}
                         Err(_) => continue,
                     };
                 }
