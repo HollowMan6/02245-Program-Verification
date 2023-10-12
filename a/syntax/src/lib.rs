@@ -25,6 +25,7 @@ pub mod ast;
 mod ast_ext;
 mod parse;
 mod sem;
+mod core_1;
 
 use miette::IntoDiagnostic;
 
@@ -46,7 +47,8 @@ pub fn parse_file(f: impl AsRef<std::path::Path>) -> miette::Result<ast::Documen
         .into_diagnostic()
         .with_context(|| format!("Reading file {f:?}"))?;
     let ast = parse::parse_document(&src)?;
-    sem::analyze(&ast)
+    println!("Hello{ast:#?}");
+    core_1::encode(&ast)
         .with_context(|| format!("Parsing {f:?}"))
         .map_err(|e| e.with_source_code(src))
 }

@@ -182,7 +182,7 @@ pub enum Statement {
     },
     /// A nondeterministic choice statement.
     ///
-    Choice(Body, Option<Body>),
+    Choice(Body, Body),
 }
 
 /// A variable declaration.
