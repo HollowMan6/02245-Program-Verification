@@ -1,4 +1,5 @@
 use miette::Result;
+use syntax::ast::{Op, UOp};
 pub use syntax::{self, ast};
 use std::collections::HashMap;
 
@@ -118,6 +119,8 @@ enum Value {
     Bool(bool),
     Int(i64),
     Var(String),
+    Op(Op),
+    UOp(UOp)
 }
 
 fn parse_type<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, name: String, ty: ast::Type) {
@@ -194,20 +197,23 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
             }
         }
         ast::ExprKind::Unary(uop, expr) => {
-            match uop {
-                ast::UOp::Minus => {
-                    println!("UnaryOp: -");
-                }
-                ast::UOp::Not => {
-                    println!("UnaryOp: !");
-                }
-            }
             match parse_expr(&ctx, variables, expr) {
                 Ok(_value) => {}
                 Err(_) => {}
             };
+            match uop {
+                ast::UOp::Minus => {
+                    println!("UnaryOp: -");
+                    return Ok(Value::UOp(UOp::Minus));
+                }
+                ast::UOp::Not => {
+                    println!("UnaryOp: !");
+                    return Ok(Value::UOp(UOp::Not));
+                }
+            } 
         }
         ast::ExprKind::Binary(expr1, op, expr2) => {
+            // Give some example for this you have in mind?
             match parse_expr(&ctx, variables, expr1) {
                 Ok(_value) => {}
                 Err(_) => {}
@@ -219,42 +225,59 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
             match op {
                 ast::Op::And => {
                     println!("BinaryOp: &&");
+                     return Ok(Value::Op(Op::And));
                 }
                 ast::Op::Divide => {
                     println!("BinaryOp: /");
+                    return Ok(Value::Op(Op::Divide));
+
                 }
                 ast::Op::Eq => {
                     println!("BinaryOp: ==");
+                    return Ok(Value::Op(Op::Eq));
+
                 }
                 ast::Op::Geq => {
                     println!("BinaryOp: >=");
+                    return Ok(Value::Op(Op::Geq));
+
                 }
                 ast::Op::Gt => {
                     println!("BinaryOp: >");
+                    return Ok(Value::Op(Op::Gt));
                 }
                 ast::Op::Implies => {
                     println!("BinaryOp: ==>");
+                    return Ok(Value::Op(Op::Implies));
+
                 }
                 ast::Op::Leq => {
                     println!("BinaryOp: <=");
+                    return Ok(Value::Op(Op::Leq));
                 }
                 ast::Op::Lt => {
                     println!("BinaryOp: <");
+                    return Ok(Value::Op(Op::Lt));
                 }
                 ast::Op::Minus => {
                     println!("BinaryOp: -");
+                    return Ok(Value::Op(Op::Minus));
                 }
                 ast::Op::Neq => {
                     println!("BinaryOp: !=");
+                    return Ok(Value::Op(Op::Neq));
                 }
                 ast::Op::Or => {
                     println!("BinaryOp: ||");
+                    return Ok(Value::Op(Op::Or));
                 }
                 ast::Op::Plus => {
                     println!("BinaryOp: +");
+                    return Ok(Value::Op(Op::Plus));
                 }
                 ast::Op::Times => {
                     println!("BinaryOp: *");
+                    return Ok(Value::Op(Op::Times));
                 }
             }
         }
