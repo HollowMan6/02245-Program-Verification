@@ -1,0 +1,64 @@
+Assert(
+    Expr {
+        kind: Binary(
+            Expr {
+                kind: Var(
+                    "x",
+                ),
+                span: Span {
+                    start: 70,
+                    end: 71,
+                },
+                ty: Int,
+            },
+            Gt,
+            Expr {
+                kind: Integer(
+                    "-1",
+                ),
+                span: Span {
+                    start: 74,
+                    end: 75,
+                },
+                ty: Int,
+            },
+        ),
+        span: Span {
+            start: 70,
+            end: 75,
+        },
+        ty: Bool,
+    },
+)
+Assert(
+    Expr {
+        kind: Binary(
+            Expr {
+                kind: Var(
+                    "x",
+                ),
+                span: Span {
+                    start: 70,
+                    end: 71,
+                },
+                ty: Int,
+            },
+            Gt,
+            Expr {
+                kind: Integer(
+                    "2",
+                ),
+                span: Span {
+                    start: 74,
+                    end: 75,
+                },
+                ty: Int,
+            },
+        ),
+        span: Span {
+            start: 70,
+            end: 75,
+        },
+        ty: Bool,
+    },
+)
