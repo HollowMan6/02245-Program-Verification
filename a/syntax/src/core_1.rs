@@ -21,11 +21,10 @@ impl Encode1Context {
         Self::add_input_decl(&mut new_doc)?;
 
         Self::replace_if(&mut new_doc)?;
+        Self::add_postcondition(&mut new_doc)?;
+        Self::add_precondition(&mut new_doc)?;
 
         Ok(new_doc)
-
-        // let doc = Self::add_output_decl(&Self::add_input_decl(doc)?)?;
-        // Ok(Document{doc})
     }
 
     fn add_input_decl(doc: &mut Document) -> miette::Result<Document> {
@@ -61,11 +60,6 @@ impl Encode1Context {
             if let DocumentItem::Method(method) = item {
                 if let Some(body) = &mut method.body {
                     body.statements = body.statements.iter().map(|stmt| Self::encode_stmt(stmt)).collect();
-                    
-                    // for input_var in &method.outputs {
-                    //     let var_decl = Statement::Choice(input_var.clone(), None);
-                    //     body.statements.insert(0, var_decl);
-                    // }
                 }
             }
         }
@@ -87,19 +81,8 @@ impl Encode1Context {
                 expr.kind = Box::new(ExprKind::Unary(not,cond.clone()));
                 let assumption2 = Statement::Assume(expr.clone());
                 _else_.statements.insert(0, assumption2);
-                println!("{cond:#?}");
-                // let cond_ty = self.encode_expr(Location::Expr, cond)?;
-                // cond_ty.expect_ty(cond.span, Type::Bool)?;
 
-                // let then = self.encode_body(then)?;
-
-                // let else_ = if let Some(else_) = else_.as_ref() {
-                //     Some(self.encode_body(else_)?)
-                // } else {
-                //     None
-                // };
                 Statement::Choice(_then, _else_)
-            
             },
             st => {
                 (st).clone()
@@ -107,13 +90,40 @@ impl Encode1Context {
         }
     }
 
-    fn addPrecondition(doc: &mut Document) -> miette::Result<Document> {
+    fn add_precondition(doc: &mut Document) -> miette::Result<Document> {
         for item in &mut doc.items {
             if let DocumentItem::Method(method) = item {
-                if let Some(body) = &mut method.body {
-                    for input_var in &method.outputs {
-                        let var_decl = Statement::Var(input_var.clone(), None);
-                        body.statements.insert(0, var_decl);
+                for spec in &mut method.specifications{
+                    if let Specification::Requires(expr) = spec {
+                        let assumption = Statement::Assume(expr.clone());
+                        let Some(body) = &mut method.body else { todo!() };
+
+                        let mut index_after_var = 0;
+
+                        for stmt in &mut body.statements{
+                            if let Statement::Var(_var, _expr) = stmt { 
+                                index_after_var += 1;
+                            }
+                            else{
+                                break;
+                            }
+                        }
+                        body.statements.insert(index_after_var, assumption);
+                    }
+                }
+            }
+        }
+        Ok(doc.clone())
+    }
+
+    fn add_postcondition(doc: &mut Document) -> miette::Result<Document> {
+        for item in &mut doc.items {
+            if let DocumentItem::Method(method) = item {
+                for spec in &mut method.specifications{
+                    if let Specification::Ensures(expr) = spec {
+                        let assertion = Statement::Assert(expr.clone());
+                        let Some(body) = &mut method.body else { todo!() };
+                        body.statements.push(assertion);
                     }
                 }
             }

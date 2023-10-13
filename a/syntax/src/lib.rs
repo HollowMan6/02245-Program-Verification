@@ -26,6 +26,7 @@ mod ast_ext;
 mod parse;
 mod sem;
 mod core_1;
+mod ivl0;
 
 use miette::IntoDiagnostic;
 
@@ -47,10 +48,17 @@ pub fn parse_file(f: impl AsRef<std::path::Path>) -> miette::Result<ast::Documen
         .into_diagnostic()
         .with_context(|| format!("Reading file {f:?}"))?;
     let ast = parse::parse_document(&src)?;
-    println!("Hello{ast:#?}");
-    core_1::encode(&ast)
+    sem::analyze(&ast)
         .with_context(|| format!("Parsing {f:?}"))
         .map_err(|e| e.with_source_code(src))
+
+
+
+    // core_1::encode(&ast);
+
+    // ivl0::encode(&ast)
+    //     .with_context(|| format!("Parsing {f:?}"))
+    //     .map_err(|e| e.with_source_code(src_clone))
 }
 /// Parse and statically analyze a string. The returned document type-checks and
 /// contains no illegal assignments or references.
@@ -64,8 +72,10 @@ pub fn parse_file(f: impl AsRef<std::path::Path>) -> miette::Result<ast::Documen
 /// # Ok(())
 /// # }
 /// ```
-pub fn parse_src(src: impl AsRef<str>) -> miette::Result<ast::Document> {
-    let src = src.as_ref();
-    let ast = parse::parse_document(src)?;
-    sem::analyze(&ast).map_err(|e| e.with_source_code(src.to_string()))
+pub fn encode1(ast: ast::Document) -> miette::Result<ast::Document> {
+    core_1::encode(&ast)
+}
+
+pub fn encode2(ast: ast::Document) -> miette::Result<ast::Document> {
+    ivl0::encode(&ast)
 }

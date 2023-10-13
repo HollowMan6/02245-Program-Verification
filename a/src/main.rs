@@ -6,6 +6,13 @@ fn main() -> Result<()> {
     for p in std::env::args().skip(1) {
         let doc_ast = syntax::parse_file(p)?;
         println!("{doc_ast:#?}");
+
+        let new_doc_ast = syntax::encode1(doc_ast.clone())?;
+        println!("{new_doc_ast:#?}");
+
+        let new_new_doc_ast = syntax::encode2(new_doc_ast.clone())?;
+        println!("{new_new_doc_ast:#?}");
+
     }
 
     // Z3 usage example
