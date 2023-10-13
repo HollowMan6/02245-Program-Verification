@@ -27,6 +27,7 @@ mod parse;
 mod sem;
 mod core_1;
 mod ivl0;
+mod transform_to_z3;
 
 use miette::IntoDiagnostic;
 
@@ -52,8 +53,6 @@ pub fn parse_file(f: impl AsRef<std::path::Path>) -> miette::Result<ast::Documen
         .with_context(|| format!("Parsing {f:?}"))
         .map_err(|e| e.with_source_code(src))
 
-
-
     // core_1::encode(&ast);
 
     // ivl0::encode(&ast)
@@ -78,4 +77,8 @@ pub fn encode1(ast: ast::Document) -> miette::Result<ast::Document> {
 
 pub fn encode2(ast: ast::Document) -> miette::Result<ast::Document> {
     ivl0::encode(&ast)
+}
+
+pub fn encode3(ast: ast::Document) -> miette::Result<ast::Document> {
+    transform_to_z3::encode(&ast)
 }

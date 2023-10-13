@@ -26,6 +26,7 @@ fn main() -> Result<()> {
     let zero = Int::from_i64(&ctx, 0);
 
     let assumptions = &[x.gt(&zero)];
+    
     // Uncomment this for an unsatisfiable set of assumptions
     // let assumptions = &[x.gt(&zero), x.lt(&zero)];
 

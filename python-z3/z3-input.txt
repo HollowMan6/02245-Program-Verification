@@ -1,0 +1,160 @@
+Assume(
+    Expr {
+        kind: Binary(
+            Expr {
+                kind: Var(
+                    "x0",
+                ),
+                span: Span {
+                    start: 92,
+                    end: 94,
+                },
+                ty: Int,
+            },
+            Gt,
+            Expr {
+                kind: Integer(
+                    "0",
+                ),
+                span: Span {
+                    start: 97,
+                    end: 98,
+                },
+                ty: Int,
+            },
+        ),
+        span: Span {
+            start: 92,
+            end: 98,
+        },
+        ty: Bool,
+    },
+)
+Assume(
+    Expr {
+        kind: Binary(
+            Expr {
+                kind: Var(
+                    "x0",
+                ),
+                span: Span {
+                    start: 110,
+                    end: 112,
+                },
+                ty: Int,
+            },
+            Eq,
+            Expr {
+                kind: Integer(
+                    "5",
+                ),
+                span: Span {
+                    start: 116,
+                    end: 117,
+                },
+                ty: Int,
+            },
+        ),
+        span: Span {
+            start: 110,
+            end: 117,
+        },
+        ty: Bool,
+    },
+)
+Assume(
+    Expr {
+        kind: Binary(
+            Expr {
+                kind: Var(
+                    "y0",
+                ),
+                span: Span {
+                    start: 129,
+                    end: 131,
+                },
+                ty: Int,
+            },
+            Eq,
+            Expr {
+                kind: Integer(
+                    "6",
+                ),
+                span: Span {
+                    start: 135,
+                    end: 136,
+                },
+                ty: Int,
+            },
+        ),
+        span: Span {
+            start: 129,
+            end: 136,
+        },
+        ty: Bool,
+    },
+)
+Assume(
+    Expr {
+        kind: Binary(
+            Expr {
+                kind: Var(
+                    "y1",
+                ),
+                span: Span {
+                    start: 148,
+                    end: 150,
+                },
+                ty: Int,
+            },
+            Eq,
+            Expr {
+                kind: Var(
+                    "y0",
+                ),
+                span: Span {
+                    start: 154,
+                    end: 156,
+                },
+                ty: Int,
+            },
+        ),
+        span: Span {
+            start: 148,
+            end: 156,
+        },
+        ty: Bool,
+    },
+)
+Assert(
+    Expr {
+        kind: Binary(
+            Expr {
+                kind: Var(
+                    "y1",
+                ),
+                span: Span {
+                    start: 169,
+                    end: 171,
+                },
+                ty: Int,
+            },
+            Gt,
+            Expr {
+                kind: Var(
+                    "x0",
+                ),
+                span: Span {
+                    start: 174,
+                    end: 176,
+                },
+                ty: Int,
+            },
+        ),
+        span: Span {
+            start: 169,
+            end: 176,
+        },
+        ty: Bool,
+    },
+)
