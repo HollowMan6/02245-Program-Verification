@@ -1,5 +1,4 @@
 use miette::Result;
-use syntax::ast::{Op, UOp};
 pub use syntax::{self, ast};
 use std::collections::HashMap;
 
@@ -31,7 +30,7 @@ fn main() -> Result<()> {
                     parse_params(&ctx, &mut variables, outputs)?;
 
                     match parse_specs(&ctx, &mut variables, specifications) {
-                        Ok(()) => {}
+                        Ok(()) => {},
                         Err(_) => continue,
                     };
 
@@ -59,12 +58,12 @@ fn main() -> Result<()> {
                     parse_params(&ctx, &mut variables, inputs)?;
 
                     match parse_specs(&ctx, &mut variables, specifications) {
-                        Ok(()) => {}
+                        Ok(()) => {},
                         Err(_) => continue,
                     };
                     match body {
                         Some(body) => {
-                            parse_expr(&ctx, &mut variables, body)?;
+                            parse_expr(&ctx, &mut variables, body);
                         }
                         None => continue,
                     }
@@ -119,8 +118,6 @@ enum Value {
     Bool(bool),
     Int(i64),
     Var(String),
-    Op(Op),
-    UOp(UOp)
 }
 
 fn parse_type<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, name: String, ty: ast::Type) {
@@ -142,143 +139,115 @@ fn parse_params<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variab
 // Parse specifications
 fn parse_specs<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, specs: Vec<ast::Specification>) -> Result<()> {
     for spec in specs {
-        match spec {
+        let value = match spec {
             ast::Specification::Ensures(ensures) => {
                 match parse_expr(&ctx, variables, ensures) {
-                    Ok(_value) => {
-                    }
+                    Ok(value) => value,
                     Err(_) => continue,
-                };
+                }
             }
             ast::Specification::Requires(requires) => {
                 match parse_expr(&ctx, variables, requires) {
-                    Ok(_value) => {}
+                    Ok(value) => value,
                     Err(_) => continue,
-                };
+                }
             }
-        }
+        };
     }
     Ok(())
 }
 
-fn parse_expr<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, expr: ast::Expr) -> Result<Value> {
+fn parse_expr<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, expr: ast::Expr) -> Result<Value, String> {
     let kind = expr.kind;
     let ty = expr.ty;
+    // match ty {
+    //     ast::Type::Bool => Ok(Value::Bool(true)),
+    //     ast::Type::Int => Ok(Value::Int(0)),
+    // };
     match parse_expr_kind(&ctx, variables, kind) {
-        Ok(_value) => {}
-        Err(_) => {}
-    };
-    match ty {
-        ast::Type::Bool => Ok(Value::Bool(true)),
-        ast::Type::Int => Ok(Value::Int(0)),
+        Ok(value) => Ok(value),
+        Err(_) => Err("Error message".to_string()),
     }
 }
 
-fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, expr_kind: Box<ast::ExprKind>) -> Result<Value> {
+fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, expr_kind: Box<ast::ExprKind>) -> Result<Value, String> {
     match *expr_kind {
-        ast::ExprKind::Boolean(b) => {
-            return Ok(Value::Bool(b));
-        }
-        ast::ExprKind::Integer(i) => {
-            return Ok(Value::Int(i.parse().unwrap()));
-        }
-        ast::ExprKind::Result => {
-            // ask about this.
-            println!("Result");
-        }
-        ast::ExprKind::Var(ident) => {
-            return Ok(Value::Var(ident.text));
-        }
+        ast::ExprKind::Boolean(b) => Ok(Value::Bool(b)),
+        ast::ExprKind::Integer(i) => Ok(Value::Int(i.parse().unwrap())),
+        ast::ExprKind::Result => Ok(Value::Var("result".to_string())),
+        ast::ExprKind::Var(ident) => Ok(Value::Var(ident.text)),
         ast::ExprKind::Call(ident, exprs) => {
             println!("Call: {}", ident.text);
             for expr in exprs {
                 // TODO: handle multiple exprs
-                return Ok(parse_expr(&ctx, variables, expr)?);
-            }
-        }
-        ast::ExprKind::Unary(uop, expr) => {
-            match parse_expr(&ctx, variables, expr) {
-                Ok(_value) => {}
-                Err(_) => {}
+                parse_expr(&ctx, variables, expr);
             };
+            Ok(Value::Var(ident.text))
+        },
+        ast::ExprKind::Unary(uop, expr) => {
             match uop {
                 ast::UOp::Minus => {
                     println!("UnaryOp: -");
-                    return Ok(Value::UOp(UOp::Minus));
                 }
                 ast::UOp::Not => {
                     println!("UnaryOp: !");
-                    return Ok(Value::UOp(UOp::Not));
                 }
-            } 
+            }
+            match parse_expr(&ctx, variables, expr) {
+                Ok(value) => Ok(value),
+                Err(_) => Err("Error message".to_string()),
+            }
         }
         ast::ExprKind::Binary(expr1, op, expr2) => {
             // Give some example for this you have in mind?
             match parse_expr(&ctx, variables, expr1) {
-                Ok(_value) => {}
-                Err(_) => {}
-            };
-            match parse_expr(&ctx, variables, expr2) {
-                Ok(_value) => {}
-                Err(_) => {}
+                Ok(value) => Ok(value),
+                Err(_) => Err("Error message".to_string()),
             };
             match op {
                 ast::Op::And => {
                     println!("BinaryOp: &&");
-                     return Ok(Value::Op(Op::And));
                 }
                 ast::Op::Divide => {
                     println!("BinaryOp: /");
-                    return Ok(Value::Op(Op::Divide));
-
                 }
                 ast::Op::Eq => {
                     println!("BinaryOp: ==");
-                    return Ok(Value::Op(Op::Eq));
-
                 }
                 ast::Op::Geq => {
                     println!("BinaryOp: >=");
-                    return Ok(Value::Op(Op::Geq));
-
                 }
                 ast::Op::Gt => {
                     println!("BinaryOp: >");
-                    return Ok(Value::Op(Op::Gt));
                 }
                 ast::Op::Implies => {
                     println!("BinaryOp: ==>");
-                    return Ok(Value::Op(Op::Implies));
-
                 }
                 ast::Op::Leq => {
                     println!("BinaryOp: <=");
-                    return Ok(Value::Op(Op::Leq));
                 }
                 ast::Op::Lt => {
                     println!("BinaryOp: <");
-                    return Ok(Value::Op(Op::Lt));
                 }
                 ast::Op::Minus => {
                     println!("BinaryOp: -");
-                    return Ok(Value::Op(Op::Minus));
                 }
                 ast::Op::Neq => {
                     println!("BinaryOp: !=");
-                    return Ok(Value::Op(Op::Neq));
                 }
                 ast::Op::Or => {
                     println!("BinaryOp: ||");
-                    return Ok(Value::Op(Op::Or));
                 }
                 ast::Op::Plus => {
                     println!("BinaryOp: +");
-                    return Ok(Value::Op(Op::Plus));
                 }
                 ast::Op::Times => {
                     println!("BinaryOp: *");
-                    return Ok(Value::Op(Op::Times));
                 }
+            }
+            match parse_expr(&ctx, variables, expr2) {
+                Ok(value) => Ok(value),
+                Err(_) => Err("Error message".to_string()),
             }
         }
         ast::ExprKind::Quantification(quantifier, var, expr) => {
@@ -294,12 +263,11 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
             println!("Var: {}", name.text);
             parse_type(&ctx, variables, name.text, ty);
             match parse_expr(&ctx, variables, expr) {
-                Ok(_value) => {}
-                Err(_) => {}
-            };
+                Ok(value) => Ok(value),
+                Err(_) => Err("Error message".to_string()),
+            }
         }
     }
-    Ok(Value::Bool(true))
 }
 
 // Parse body
