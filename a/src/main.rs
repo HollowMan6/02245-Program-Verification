@@ -29,19 +29,29 @@ fn main() -> Result<()> {
                     parse_params(&ctx, &mut variables, outputs);
 
                     match parse_specs(&ctx, &mut variables, specifications) {
-                        Ok((ensures, requires)) => match body {
-                            Some(b) => {
-                                match parse_body(&ctx, &mut variables, &solver, b) {
-                                    Ok(()) => {
-                                        println!("The body of file {p} parsed successfully");
-                                    }
-                                    Err(e) => {
-                                        println!("{e}")
-                                    }
-                                };
+                        Ok((require, ensure)) => {
+                            let mut assumptions: Vec<z3::ast::Bool> = vec![require];
+                            match body {
+                                Some(b) => {
+                                    match parse_body(
+                                        &ctx,
+                                        &mut variables,
+                                        &solver,
+                                        assumptions.clone(),
+                                        b,
+                                    ) {
+                                        Ok(()) => {
+                                            println!("The body of file {p} parsed successfully");
+                                        }
+                                        Err(e) => {
+                                            println!("{e}")
+                                        }
+                                    };
+                                }
+                                None => {}
                             }
-                            None => {}
-                        },
+                            solver.assert(&ensure);
+                        }
                         Err(e) => {
                             println!("{e}")
                         }
@@ -62,13 +72,21 @@ fn main() -> Result<()> {
                     parse_params(&ctx, &mut variables, inputs);
 
                     match parse_specs(&ctx, &mut variables, specifications) {
-                        Ok((ensures, requires)) => match body {
-                            Some(body) => {
-                                // TODO: Add support for functions
-                                parse_expr(&ctx, &mut variables, body);
+                        Ok((require, ensure)) => {
+                            match body {
+                                Some(body) => {
+                                    // TODO: Add support for functions calling check
+                                    match parse_expr(&ctx, &mut variables, body) {
+                                        Ok(value) => {
+                                            add_assumption(&ctx, &solver, vec![require], value)
+                                        }
+                                        Err(e) => Err(e),
+                                    };
+                                }
+                                None => {}
                             }
-                            None => {}
-                        },
+                            solver.assert(&ensure);
+                        }
                         Err(e) => {
                             println!("{e}")
                         }
@@ -94,30 +112,58 @@ enum Value<'a> {
     Var(Variable<'a>),
 }
 
-fn assume(solver: &z3::Solver, assumptions: &[z3::ast::Bool]) {
+fn assume<'a>(
+    solver: &z3::Solver<'a>,
+    assumptions: &[z3::ast::Bool],
+) -> Result<z3::Model<'a>, String> {
     dbg!(assumptions);
     match solver.check_assumptions(assumptions) {
         z3::SatResult::Unsat => {
-            println!(" + The assertions were unsatisfiable!");
             for unsat in solver.get_unsat_core() {
                 dbg!(unsat);
             }
+            Err(" + The assertions were unsatisfiable!".to_string())
         }
         z3::SatResult::Unknown => {
-            println!(" + Maybe the assertions were satisfiable?");
             if let Some(model) = solver.get_model() {
-                dbg!(model);
-            } else {
-                println!("Oh no, couldn't extract a model!")
+                return Ok(model);
             }
+            Err(" + The assertions may be satisfiable but couldn't extract a model".to_string())
         }
         z3::SatResult::Sat => {
             println!(" + The assertions were satisfiable!");
             let model = solver
                 .get_model()
                 .expect("a model exists since we got 'Sat'");
-            dbg!(model);
+            Ok(model)
         }
+    }
+}
+
+fn add_assumption<'a>(
+    ctx: &'a z3::Context,
+    solver: &z3::Solver,
+    assumptions: Vec<z3::ast::Bool<'a>>,
+    assumption: Value<'a>,
+) -> Result<Vec<z3::ast::Bool<'a>>, String> {
+    let mut new_assumptions = Vec::new();
+    let actual_assumption = match assumption {
+        Value::Bool(b) => z3::ast::Bool::from_bool(ctx, b),
+        Value::Var(var) => match var {
+            Variable::Bool(b) => b,
+            _ => return Err("assumption with a value that is not boolean".to_string()),
+        },
+        _ => return Err("assumption with a value that is not boolean".to_string()),
+    };
+    for ass in assumptions {
+        new_assumptions.push(ass.implies(&actual_assumption))
+    }
+    match assume(solver, &new_assumptions) {
+        Ok(model) => {
+            dbg!(model);
+            Ok(new_assumptions)
+        }
+        Err(e) => Err(e),
     }
 }
 
@@ -150,16 +196,16 @@ fn parse_specs<'a>(
     ctx: &'a z3::Context,
     variables: &mut HashMap<String, Variable<'a>>,
     specs: Vec<ast::Specification>,
-) -> Result<(Vec<Value<'a>>, Vec<Value<'a>>), String> {
+) -> Result<(z3::ast::Bool<'a>, z3::ast::Bool<'a>), String> {
     let mut requires = Vec::new();
     let mut ensures = Vec::new();
     for spec in specs {
-        let value = match spec {
+        match spec {
             ast::Specification::Ensures(e) => match parse_expr(&ctx, variables, e) {
                 Ok(value) => match value {
-                    Value::Bool(b) => ensures.push(Value::Bool(b)),
+                    Value::Bool(b) => ensures.push(z3::ast::Bool::from_bool(ctx, b)),
                     Value::Var(var) => match var {
-                        Variable::Bool(b) => ensures.push(Value::Var(Variable::Bool(b))),
+                        Variable::Bool(b) => ensures.push(b),
                         _ => return Err("Ensures with a value that has wrong type".to_string()),
                     },
                     _ => return Err("Ensures with a value that has wrong type".to_string()),
@@ -168,9 +214,9 @@ fn parse_specs<'a>(
             },
             ast::Specification::Requires(r) => match parse_expr(&ctx, variables, r) {
                 Ok(value) => match value {
-                    Value::Bool(b) => requires.push(Value::Bool(b)),
+                    Value::Bool(b) => requires.push(z3::ast::Bool::from_bool(ctx, b)),
                     Value::Var(var) => match var {
-                        Variable::Bool(b) => requires.push(Value::Var(Variable::Bool(b))),
+                        Variable::Bool(b) => requires.push(b),
                         _ => return Err("Requires with a value that has wrong type".to_string()),
                     },
                     _ => return Err("Requires with a value that has wrong type".to_string()),
@@ -179,7 +225,22 @@ fn parse_specs<'a>(
             },
         };
     }
-    Ok((requires, ensures))
+    let mut require = z3::ast::Bool::from_bool(ctx, true);
+    while requires.len() > 0 {
+        require = match requires.pop() {
+            Some(r) => z3::ast::Bool::and(ctx, &[&require, &r]),
+            None => require,
+        };
+    }
+    let mut ensure = z3::ast::Bool::from_bool(ctx, true);
+    while ensures.len() > 0 {
+        ensure = match ensures.pop() {
+            Some(r) => z3::ast::Bool::and(ctx, &[&ensure, &r]),
+            None => ensure,
+        };
+    }
+
+    Ok((require, ensure))
 }
 
 fn parse_expr<'a>(
@@ -717,6 +778,7 @@ fn parse_body<'a>(
     ctx: &'a z3::Context,
     variables: &mut HashMap<String, Variable<'a>>,
     solver: &z3::Solver,
+    assumptions: Vec<z3::ast::Bool>,
     body: ast::Body,
 ) -> Result<(), String> {
     for stmt in body.statements {
@@ -752,12 +814,21 @@ fn parse_body<'a>(
                     Variable::Bool(assigned) => {
                         match parse_expr(&ctx, variables, expr) {
                             Ok(value) => match value {
-                                Value::Bool(b) => assume(
+                                Value::Bool(b) => add_assumption(
+                                    ctx,
                                     solver,
-                                    &[assigned._eq(&z3::ast::Bool::from_bool(ctx, b))],
+                                    assumptions.clone(),
+                                    Value::Var(Variable::Bool(
+                                        assigned._eq(&z3::ast::Bool::from_bool(ctx, b)),
+                                    )),
                                 ),
                                 Value::Var(var) => match var {
-                                    Variable::Bool(b) => assume(solver, &[assigned._eq(&b)]),
+                                    Variable::Bool(b) => add_assumption(
+                                        ctx,
+                                        solver,
+                                        assumptions.clone(),
+                                        Value::Var(Variable::Bool(assigned._eq(&b))),
+                                    ),
                                     _ => {
                                         return Err("Assignment with a value that has wrong type"
                                             .to_string())
@@ -775,11 +846,21 @@ fn parse_body<'a>(
                     Variable::Int(assigned) => {
                         match parse_expr(&ctx, variables, expr) {
                             Ok(value) => match value {
-                                Value::Int(b) => {
-                                    assume(solver, &[assigned._eq(&z3::ast::Int::from_i64(ctx, b))])
-                                }
+                                Value::Int(b) => add_assumption(
+                                    ctx,
+                                    solver,
+                                    assumptions.clone(),
+                                    Value::Var(Variable::Bool(
+                                        assigned._eq(&z3::ast::Int::from_i64(ctx, b)),
+                                    )),
+                                ),
                                 Value::Var(var) => match var {
-                                    Variable::Int(b) => assume(solver, &[assigned._eq(&b)]),
+                                    Variable::Int(b) => add_assumption(
+                                        ctx,
+                                        solver,
+                                        assumptions.clone(),
+                                        Value::Var(Variable::Bool(assigned._eq(&b))),
+                                    ),
                                     _ => {
                                         return Err("Assignment with a value that has wrong type"
                                             .to_string())
@@ -813,13 +894,13 @@ fn parse_body<'a>(
                     Ok(value) => {}
                     Err(e) => return Err(e),
                 };
-                match parse_body(&ctx, variables, solver, body) {
+                match parse_body(&ctx, variables, solver, assumptions.clone(), body) {
                     Ok(()) => {}
                     Err(e) => return Err(e),
                 };
                 match body_opt {
                     Some(body) => {
-                        match parse_body(&ctx, variables, solver, body) {
+                        match parse_body(&ctx, variables, solver, assumptions.clone(), body) {
                             Ok(()) => {}
                             Err(e) => return Err(e),
                         };
@@ -842,7 +923,7 @@ fn parse_body<'a>(
                         Err(e) => return Err(e),
                     };
                 }
-                match parse_body(&ctx, variables, solver, body) {
+                match parse_body(&ctx, variables, solver, assumptions.clone(), body) {
                     Ok(()) => {}
                     Err(e) => return Err(e),
                 };
