@@ -1,6 +1,6 @@
 use miette::Result;
-pub use syntax::{self, ast};
 use std::collections::HashMap;
+pub use syntax::{self, ast};
 
 fn main() -> Result<()> {
     // Z3 usage example
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
                     parse_params(&ctx, &mut variables, outputs)?;
 
                     match parse_specs(&ctx, &mut variables, specifications) {
-                        Ok(()) => {},
+                        Ok(()) => {}
                         Err(_) => continue,
                     };
 
@@ -58,7 +58,7 @@ fn main() -> Result<()> {
                     parse_params(&ctx, &mut variables, inputs)?;
 
                     match parse_specs(&ctx, &mut variables, specifications) {
-                        Ok(()) => {},
+                        Ok(()) => {}
                         Err(_) => continue,
                     };
                     match body {
@@ -109,18 +109,25 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[derive(Clone)]
 enum Variable<'a> {
     Bool(z3::ast::Bool<'a>),
     Int(z3::ast::Int<'a>),
 }
 
-enum Value {
+#[derive(Clone)]
+enum Value<'a> {
     Bool(bool),
     Int(i64),
-    Var(String),
+    Var(Variable<'a>),
 }
 
-fn parse_type<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, name: String, ty: ast::Type) {
+fn parse_type<'a>(
+    ctx: &'a z3::Context,
+    variables: &mut HashMap<String, Variable<'a>>,
+    name: String,
+    ty: ast::Type,
+) {
     let variable = match ty {
         ast::Type::Bool => Variable::Bool(z3::ast::Bool::new_const(&ctx, name.clone())),
         ast::Type::Int => Variable::Int(z3::ast::Int::new_const(&ctx, name.clone())),
@@ -128,7 +135,11 @@ fn parse_type<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable
     variables.insert(name, variable);
 }
 
-fn parse_params<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, params: Vec<ast::Var>) -> Result<()> {
+fn parse_params<'a>(
+    ctx: &'a z3::Context,
+    variables: &mut HashMap<String, Variable<'a>>,
+    params: Vec<ast::Var>,
+) -> Result<()> {
     for param in params {
         let ast::Var { name, ty } = param;
         parse_type(&ctx, variables, name.text, ty);
@@ -137,27 +148,31 @@ fn parse_params<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variab
 }
 
 // Parse specifications
-fn parse_specs<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, specs: Vec<ast::Specification>) -> Result<()> {
+fn parse_specs<'a>(
+    ctx: &'a z3::Context,
+    variables: &mut HashMap<String, Variable<'a>>,
+    specs: Vec<ast::Specification>,
+) -> Result<()> {
     for spec in specs {
         let value = match spec {
-            ast::Specification::Ensures(ensures) => {
-                match parse_expr(&ctx, variables, ensures) {
-                    Ok(value) => value,
-                    Err(_) => continue,
-                }
-            }
-            ast::Specification::Requires(requires) => {
-                match parse_expr(&ctx, variables, requires) {
-                    Ok(value) => value,
-                    Err(_) => continue,
-                }
-            }
+            ast::Specification::Ensures(ensures) => match parse_expr(&ctx, variables, ensures) {
+                Ok(value) => value,
+                Err(_) => continue,
+            },
+            ast::Specification::Requires(requires) => match parse_expr(&ctx, variables, requires) {
+                Ok(value) => value,
+                Err(_) => continue,
+            },
         };
     }
     Ok(())
 }
 
-fn parse_expr<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, expr: ast::Expr) -> Result<Value, String> {
+fn parse_expr<'a>(
+    ctx: &'a z3::Context,
+    variables: &mut HashMap<String, Variable<'a>>,
+    expr: ast::Expr,
+) -> Result<Value<'a>, String> {
     let kind = expr.kind;
     let ty = expr.ty;
     // match ty {
@@ -166,88 +181,493 @@ fn parse_expr<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable
     // };
     match parse_expr_kind(&ctx, variables, kind) {
         Ok(value) => Ok(value),
-        Err(_) => Err("Error message".to_string()),
+        Err(_) => Err("Unexpected expression type".to_string()),
     }
 }
 
-fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, expr_kind: Box<ast::ExprKind>) -> Result<Value, String> {
+fn parse_expr_kind<'a>(
+    ctx: &'a z3::Context,
+    variables: &mut HashMap<String, Variable<'a>>,
+    expr_kind: Box<ast::ExprKind>,
+) -> Result<Value<'a>, String> {
     match *expr_kind {
         ast::ExprKind::Boolean(b) => Ok(Value::Bool(b)),
         ast::ExprKind::Integer(i) => Ok(Value::Int(i.parse().unwrap())),
-        ast::ExprKind::Result => Ok(Value::Var("result".to_string())),
-        ast::ExprKind::Var(ident) => Ok(Value::Var(ident.text)),
+        ast::ExprKind::Result => Ok(Value::Bool(true)),
+        ast::ExprKind::Var(ident) => Ok(Value::Var(variables.get(&ident.text).unwrap().clone())),
         ast::ExprKind::Call(ident, exprs) => {
             println!("Call: {}", ident.text);
             for expr in exprs {
                 // TODO: handle multiple exprs
                 parse_expr(&ctx, variables, expr);
-            };
-            Ok(Value::Var(ident.text))
-        },
-        ast::ExprKind::Unary(uop, expr) => {
-            match uop {
-                ast::UOp::Minus => {
-                    println!("UnaryOp: -");
-                }
-                ast::UOp::Not => {
-                    println!("UnaryOp: !");
-                }
             }
-            match parse_expr(&ctx, variables, expr) {
-                Ok(value) => Ok(value),
-                Err(_) => Err("Error message".to_string()),
-            }
+            Ok(Value::Var(variables.get(&ident.text).unwrap().clone()))
         }
+        ast::ExprKind::Unary(uop, expr) => match parse_expr(&ctx, variables, expr) {
+            Ok(value) => match uop {
+                ast::UOp::Minus => match value {
+                    Value::Int(i) => Ok(Value::Int(-i)),
+                    Value::Var(var) => match var {
+                        Variable::Int(i) => Ok(Value::Var(Variable::Int(i.unary_minus()))),
+                        _ => Err("UnaryOp - with a value that has wrong type".to_string()),
+                    },
+                    _ => Err("UnaryOp - with a value that has wrong type".to_string()),
+                },
+                ast::UOp::Not => match value {
+                    Value::Bool(i) => Ok(Value::Bool(!i)),
+                    Value::Var(var) => match var {
+                        Variable::Bool(i) => Ok(Value::Var(Variable::Bool(i.not()))),
+                        _ => Err("UnaryOp ! with a value that has wrong type".to_string()),
+                    },
+                    _ => Err("UnaryOp ! with a value that has wrong type".to_string()),
+                },
+            },
+            Err(e) => Err(e),
+        },
         ast::ExprKind::Binary(expr1, op, expr2) => {
             // Give some example for this you have in mind?
             match parse_expr(&ctx, variables, expr1) {
-                Ok(value) => Ok(value),
-                Err(_) => Err("Error message".to_string()),
-            };
-            match op {
-                ast::Op::And => {
-                    println!("BinaryOp: &&");
-                }
-                ast::Op::Divide => {
-                    println!("BinaryOp: /");
-                }
-                ast::Op::Eq => {
-                    println!("BinaryOp: ==");
-                }
-                ast::Op::Geq => {
-                    println!("BinaryOp: >=");
-                }
-                ast::Op::Gt => {
-                    println!("BinaryOp: >");
-                }
-                ast::Op::Implies => {
-                    println!("BinaryOp: ==>");
-                }
-                ast::Op::Leq => {
-                    println!("BinaryOp: <=");
-                }
-                ast::Op::Lt => {
-                    println!("BinaryOp: <");
-                }
-                ast::Op::Minus => {
-                    println!("BinaryOp: -");
-                }
-                ast::Op::Neq => {
-                    println!("BinaryOp: !=");
-                }
-                ast::Op::Or => {
-                    println!("BinaryOp: ||");
-                }
-                ast::Op::Plus => {
-                    println!("BinaryOp: +");
-                }
-                ast::Op::Times => {
-                    println!("BinaryOp: *");
-                }
-            }
-            match parse_expr(&ctx, variables, expr2) {
-                Ok(value) => Ok(value),
-                Err(_) => Err("Error message".to_string()),
+                Ok(value1) => match parse_expr(&ctx, variables, expr2) {
+                    Ok(value2) => match op {
+                        ast::Op::And => match value1 {
+                            Value::Bool(var1) => match value2 {
+                                Value::Bool(var2) => Ok(Value::Bool(var1 && var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Bool(i) => {
+                                        Ok(Value::Var(Variable::Bool(z3::ast::Bool::and(
+                                            ctx,
+                                            &[&z3::ast::Bool::from_bool(ctx, var1), &i],
+                                        ))))
+                                    }
+                                    _ => Err("&& with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("&& with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Bool(i) => match value2 {
+                                    Value::Bool(var2) => {
+                                        Ok(Value::Var(Variable::Bool(z3::ast::Bool::and(
+                                            ctx,
+                                            &[&i, &z3::ast::Bool::from_bool(ctx, var2)],
+                                        ))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Bool(i2) => Ok(Value::Var(Variable::Bool(
+                                            z3::ast::Bool::and(ctx, &[&i, &i2]),
+                                        ))),
+                                        _ => Err("&& with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("&& with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("&& with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("&& with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Divide => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Int(var1 / var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => Ok(Value::Var(Variable::Int(
+                                        z3::ast::Int::from_i64(ctx, var1).div(&i),
+                                    ))),
+                                    _ => Err("/ with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("/ with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => Ok(Value::Var(Variable::Int(
+                                        i.div(&z3::ast::Int::from_i64(ctx, var2)),
+                                    ))),
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => {
+                                            Ok(Value::Var(Variable::Int(i.div(&i2))))
+                                        }
+                                        _ => Err("/ with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("/ with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("/ with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("/ with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Eq => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Bool(var1 == var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => {
+                                        Ok(Value::Bool(z3::ast::Int::from_i64(ctx, var1).eq(&i)))
+                                    }
+                                    _ => Err("== with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("== with a value that has wrong type".to_string()),
+                            },
+                            Value::Bool(var1) => match value2 {
+                                Value::Bool(var2) => Ok(Value::Bool(var1 == var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Bool(i) => {
+                                        Ok(Value::Bool(z3::ast::Bool::from_bool(ctx, var1).eq(&i)))
+                                    }
+                                    _ => Err("== with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("== with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => {
+                                        Ok(Value::Bool(i.eq(&z3::ast::Int::from_i64(ctx, var2))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => Ok(Value::Bool(i.eq(&i2))),
+                                        _ => Err("== with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("== with a value that has wrong type".to_string()),
+                                },
+                                Variable::Bool(i) => match value2 {
+                                    Value::Bool(var2) => {
+                                        Ok(Value::Bool(i.eq(&z3::ast::Bool::from_bool(ctx, var2))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Bool(i2) => Ok(Value::Bool(i.eq(&i2))),
+                                        _ => Err("== with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("== with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("== with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("== with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Geq => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Bool(var1 >= var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Int::from_i64(ctx, var1).ge(&i),
+                                    ))),
+                                    _ => Err(">= with a value that has wrong type".to_string()),
+                                },
+                                _ => Err(">= with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => Ok(Value::Var(Variable::Bool(
+                                        i.ge(&z3::ast::Int::from_i64(ctx, var2)),
+                                    ))),
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i.ge(&i2))))
+                                        }
+                                        _ => Err(">= with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err(">= with a value that has wrong type".to_string()),
+                                },
+                                _ => Err(">= with a value that has wrong type".to_string()),
+                            },
+                            _ => Err(">= with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Gt => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Bool(var1 > var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Int::from_i64(ctx, var1).gt(&i),
+                                    ))),
+                                    _ => Err("> with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("> with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => Ok(Value::Var(Variable::Bool(
+                                        i.gt(&z3::ast::Int::from_i64(ctx, var2)),
+                                    ))),
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i.gt(&i2))))
+                                        }
+                                        _ => Err("> with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("> with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("> with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("> with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Implies => match value1 {
+                            Value::Bool(var1) => match value2 {
+                                Value::Bool(var2) => Ok(Value::Var(Variable::Bool(
+                                    z3::ast::Bool::from_bool(ctx, var1)
+                                        .implies(&z3::ast::Bool::from_bool(ctx, var2)),
+                                ))),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Bool(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Bool::from_bool(ctx, var1).implies(&i),
+                                    ))),
+                                    _ => Err("==> with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("==> with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Bool(i) => match value2 {
+                                    Value::Bool(var2) => Ok(Value::Var(Variable::Bool(
+                                        i.implies(&z3::ast::Bool::from_bool(ctx, var2)),
+                                    ))),
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Bool(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i.implies(&i2))))
+                                        }
+                                        _ => {
+                                            Err("==> with a value that has wrong type".to_string())
+                                        }
+                                    },
+                                    _ => Err("==> with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("==> with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("==> with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Leq => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Bool(var1 <= var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Int::from_i64(ctx, var1).le(&i),
+                                    ))),
+                                    _ => Err("<= with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("<= with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => Ok(Value::Var(Variable::Bool(
+                                        i.le(&z3::ast::Int::from_i64(ctx, var2)),
+                                    ))),
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i.le(&i2))))
+                                        }
+                                        _ => Err("<= with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("<= with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("<= with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("<= with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Lt => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Bool(var1 < var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Int::from_i64(ctx, var1).lt(&i),
+                                    ))),
+                                    _ => Err("< with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("< with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => Ok(Value::Var(Variable::Bool(
+                                        i.lt(&z3::ast::Int::from_i64(ctx, var2)),
+                                    ))),
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i.lt(&i2))))
+                                        }
+                                        _ => Err("< with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("< with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("< with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("< with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Minus => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Int(var1 - var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => {
+                                        Ok(Value::Var(Variable::Int(z3::ast::Int::sub(
+                                            ctx,
+                                            &[&z3::ast::Int::from_i64(ctx, var1), &i],
+                                        ))))
+                                    }
+                                    _ => Err("- with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("- with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => {
+                                        Ok(Value::Var(Variable::Int(z3::ast::Int::sub(
+                                            ctx,
+                                            &[&i, &z3::ast::Int::from_i64(ctx, var2)],
+                                        ))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => Ok(Value::Var(Variable::Int(
+                                            z3::ast::Int::sub(ctx, &[&i, &i2]),
+                                        ))),
+                                        _ => Err("- with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("- with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("- with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("- with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Neq => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Bool(var1 != var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => {
+                                        Ok(Value::Bool(z3::ast::Int::from_i64(ctx, var1).ne(&i)))
+                                    }
+                                    _ => Err("!= with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("!= with a value that has wrong type".to_string()),
+                            },
+                            Value::Bool(var1) => match value2 {
+                                Value::Bool(var2) => Ok(Value::Bool(var1 != var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Bool(i) => {
+                                        Ok(Value::Bool(z3::ast::Bool::from_bool(ctx, var1).ne(&i)))
+                                    }
+                                    _ => Err("!= with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("!= with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => {
+                                        Ok(Value::Bool(i.ne(&z3::ast::Int::from_i64(ctx, var2))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => Ok(Value::Bool(i.ne(&i2))),
+                                        _ => Err("!= with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("!= with a value that has wrong type".to_string()),
+                                },
+                                Variable::Bool(i) => match value2 {
+                                    Value::Bool(var2) => {
+                                        Ok(Value::Bool(i.ne(&z3::ast::Bool::from_bool(ctx, var2))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Bool(i2) => Ok(Value::Bool(i.ne(&i2))),
+                                        _ => Err("!= with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("!= with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("!= with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("!= with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Or => match value1 {
+                            Value::Bool(var1) => match value2 {
+                                Value::Bool(var2) => Ok(Value::Bool(var1 || var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Bool(i) => {
+                                        Ok(Value::Var(Variable::Bool(z3::ast::Bool::or(
+                                            ctx,
+                                            &[&z3::ast::Bool::from_bool(ctx, var1), &i],
+                                        ))))
+                                    }
+                                    _ => Err("|| with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("|| with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Bool(i) => match value2 {
+                                    Value::Bool(var2) => {
+                                        Ok(Value::Var(Variable::Bool(z3::ast::Bool::or(
+                                            ctx,
+                                            &[&i, &z3::ast::Bool::from_bool(ctx, var2)],
+                                        ))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Bool(i2) => Ok(Value::Var(Variable::Bool(
+                                            z3::ast::Bool::or(ctx, &[&i, &i2]),
+                                        ))),
+                                        _ => Err("|| with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("|| with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("|| with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("|| with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Plus => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Int(var1 + var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => {
+                                        Ok(Value::Var(Variable::Int(z3::ast::Int::add(
+                                            ctx,
+                                            &[&z3::ast::Int::from_i64(ctx, var1), &i],
+                                        ))))
+                                    }
+                                    _ => Err("+ with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("+ with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => {
+                                        Ok(Value::Var(Variable::Int(z3::ast::Int::add(
+                                            ctx,
+                                            &[&i, &z3::ast::Int::from_i64(ctx, var2)],
+                                        ))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => Ok(Value::Var(Variable::Int(
+                                            z3::ast::Int::add(ctx, &[&i, &i2]),
+                                        ))),
+                                        _ => Err("+ with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("+ with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("+ with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("+ with a value that has wrong type".to_string()),
+                        },
+                        ast::Op::Times => match value1 {
+                            Value::Int(var1) => match value2 {
+                                Value::Int(var2) => Ok(Value::Int(var1 * var2)),
+                                Value::Var(var2) => match var2 {
+                                    Variable::Int(i) => {
+                                        Ok(Value::Var(Variable::Int(z3::ast::Int::mul(
+                                            ctx,
+                                            &[&z3::ast::Int::from_i64(ctx, var1), &i],
+                                        ))))
+                                    }
+                                    _ => Err("* with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("* with a value that has wrong type".to_string()),
+                            },
+                            Value::Var(var) => match var {
+                                Variable::Int(i) => match value2 {
+                                    Value::Int(var2) => {
+                                        Ok(Value::Var(Variable::Int(z3::ast::Int::mul(
+                                            ctx,
+                                            &[&i, &z3::ast::Int::from_i64(ctx, var2)],
+                                        ))))
+                                    }
+                                    Value::Var(var2) => match var2 {
+                                        Variable::Int(i2) => Ok(Value::Var(Variable::Int(
+                                            z3::ast::Int::mul(ctx, &[&i, &i2]),
+                                        ))),
+                                        _ => Err("* with a value that has wrong type".to_string()),
+                                    },
+                                    _ => Err("* with a value that has wrong type".to_string()),
+                                },
+                                _ => Err("* with a value that has wrong type".to_string()),
+                            },
+                            _ => Err("* with a value that has wrong type".to_string()),
+                        },
+                    },
+                    Err(e) => Err(e),
+                },
+                Err(e) => Err(e),
             }
         }
         ast::ExprKind::Quantification(quantifier, var, expr) => {
@@ -264,14 +684,18 @@ fn parse_expr_kind<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Var
             parse_type(&ctx, variables, name.text, ty);
             match parse_expr(&ctx, variables, expr) {
                 Ok(value) => Ok(value),
-                Err(_) => Err("Error message".to_string()),
+                Err(e) => Err(e),
             }
         }
     }
 }
 
 // Parse body
-fn parse_body<'a>(ctx: &'a z3::Context, variables: &mut HashMap<String, Variable<'a>>, body: ast::Body) -> Result<()> {
+fn parse_body<'a>(
+    ctx: &'a z3::Context,
+    variables: &mut HashMap<String, Variable<'a>>,
+    body: ast::Body,
+) -> Result<()> {
     for stmt in body.statements {
         match stmt {
             ast::Statement::Var(var, expr) => {
