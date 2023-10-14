@@ -1,17 +1,16 @@
 use miette::Result;
 use std::collections::HashMap;
-pub use syntax::{self, ast};
+pub use syntax::ast;
+use z3::ast::Ast;
 
 fn main() -> Result<()> {
-    // Z3 usage example
-    use z3::{ast::Int, SatResult};
-
     let cfg = z3::Config::new();
     let ctx = z3::Context::new(&cfg);
+    let solver = z3::Solver::new(&ctx);
 
-    // Parsing example
+    // Parsing
     for p in std::env::args().skip(1) {
-        let doc_ast = syntax::parse_file(p)?;
+        let doc_ast = syntax::parse_file(p.clone())?;
         for item in doc_ast.items {
             match item {
                 ast::DocumentItem::Method(method) => {
@@ -26,21 +25,26 @@ fn main() -> Result<()> {
 
                     // Define variables hashmap and store it in context
                     let mut variables = HashMap::new();
-                    parse_params(&ctx, &mut variables, inputs)?;
-                    parse_params(&ctx, &mut variables, outputs)?;
+                    parse_params(&ctx, &mut variables, inputs);
+                    parse_params(&ctx, &mut variables, outputs);
 
                     match parse_specs(&ctx, &mut variables, specifications) {
-                        Ok(()) => {}
-                        Err(_) => continue,
-                    };
-
-                    let b = match body {
-                        Some(b) => b,
-                        None => continue,
-                    };
-                    match parse_body(&ctx, &mut variables, b) {
-                        Ok(()) => {}
-                        Err(_) => continue,
+                        Ok((ensures, requires)) => match body {
+                            Some(b) => {
+                                match parse_body(&ctx, &mut variables, &solver, b) {
+                                    Ok(()) => {
+                                        println!("The body of file {p} parsed successfully");
+                                    }
+                                    Err(e) => {
+                                        println!("{e}")
+                                    }
+                                };
+                            }
+                            None => {}
+                        },
+                        Err(e) => {
+                            println!("{e}")
+                        }
                     };
                 }
                 ast::DocumentItem::Function(function) => {
@@ -55,54 +59,22 @@ fn main() -> Result<()> {
 
                     // Define variables hashmap and store it in context
                     let mut variables: HashMap<String, Variable> = HashMap::new();
-                    parse_params(&ctx, &mut variables, inputs)?;
+                    parse_params(&ctx, &mut variables, inputs);
 
                     match parse_specs(&ctx, &mut variables, specifications) {
-                        Ok(()) => {}
-                        Err(_) => continue,
-                    };
-                    match body {
-                        Some(body) => {
-                            parse_expr(&ctx, &mut variables, body);
+                        Ok((ensures, requires)) => match body {
+                            Some(body) => {
+                                // TODO: Add support for functions
+                                parse_expr(&ctx, &mut variables, body);
+                            }
+                            None => {}
+                        },
+                        Err(e) => {
+                            println!("{e}")
                         }
-                        None => continue,
-                    }
+                    };
                 }
             }
-        }
-    }
-
-    let solver = z3::Solver::new(&ctx);
-
-    let x = Int::new_const(&ctx, "x");
-    let zero = Int::from_i64(&ctx, 0);
-
-    let assumptions = &[x.gt(&zero)];
-    // Uncomment this for an unsatisfiable set of assumptions
-    // let assumptions = &[x.gt(&zero), x.lt(&zero)];
-
-    println!("Checking assumptions: {assumptions:?}");
-    match solver.check_assumptions(assumptions) {
-        SatResult::Unsat => {
-            println!(" + The assertions were unsatisfiable!");
-            for unsat in solver.get_unsat_core() {
-                dbg!(unsat);
-            }
-        }
-        SatResult::Unknown => {
-            println!(" + Maybe the assertions were satisfiable?");
-            if let Some(model) = solver.get_model() {
-                dbg!(model);
-            } else {
-                println!("Oh no, couldn't extract a model!")
-            }
-        }
-        SatResult::Sat => {
-            println!(" + The assertions were satisfiable!");
-            let model = solver
-                .get_model()
-                .expect("a model exists since we got 'Sat'");
-            dbg!(model);
         }
     }
 
@@ -122,6 +94,33 @@ enum Value<'a> {
     Var(Variable<'a>),
 }
 
+fn assume(solver: &z3::Solver, assumptions: &[z3::ast::Bool]) {
+    dbg!(assumptions);
+    match solver.check_assumptions(assumptions) {
+        z3::SatResult::Unsat => {
+            println!(" + The assertions were unsatisfiable!");
+            for unsat in solver.get_unsat_core() {
+                dbg!(unsat);
+            }
+        }
+        z3::SatResult::Unknown => {
+            println!(" + Maybe the assertions were satisfiable?");
+            if let Some(model) = solver.get_model() {
+                dbg!(model);
+            } else {
+                println!("Oh no, couldn't extract a model!")
+            }
+        }
+        z3::SatResult::Sat => {
+            println!(" + The assertions were satisfiable!");
+            let model = solver
+                .get_model()
+                .expect("a model exists since we got 'Sat'");
+            dbg!(model);
+        }
+    }
+}
+
 fn parse_type<'a>(
     ctx: &'a z3::Context,
     variables: &mut HashMap<String, Variable<'a>>,
@@ -139,12 +138,11 @@ fn parse_params<'a>(
     ctx: &'a z3::Context,
     variables: &mut HashMap<String, Variable<'a>>,
     params: Vec<ast::Var>,
-) -> Result<()> {
+) {
     for param in params {
         let ast::Var { name, ty } = param;
         parse_type(&ctx, variables, name.text, ty);
     }
-    Ok(())
 }
 
 // Parse specifications
@@ -152,20 +150,36 @@ fn parse_specs<'a>(
     ctx: &'a z3::Context,
     variables: &mut HashMap<String, Variable<'a>>,
     specs: Vec<ast::Specification>,
-) -> Result<()> {
+) -> Result<(Vec<Value<'a>>, Vec<Value<'a>>), String> {
+    let mut requires = Vec::new();
+    let mut ensures = Vec::new();
     for spec in specs {
         let value = match spec {
-            ast::Specification::Ensures(ensures) => match parse_expr(&ctx, variables, ensures) {
-                Ok(value) => value,
-                Err(_) => continue,
+            ast::Specification::Ensures(e) => match parse_expr(&ctx, variables, e) {
+                Ok(value) => match value {
+                    Value::Bool(b) => ensures.push(Value::Bool(b)),
+                    Value::Var(var) => match var {
+                        Variable::Bool(b) => ensures.push(Value::Var(Variable::Bool(b))),
+                        _ => return Err("Ensures with a value that has wrong type".to_string()),
+                    },
+                    _ => return Err("Ensures with a value that has wrong type".to_string()),
+                },
+                Err(e) => return Err(e),
             },
-            ast::Specification::Requires(requires) => match parse_expr(&ctx, variables, requires) {
-                Ok(value) => value,
-                Err(_) => continue,
+            ast::Specification::Requires(r) => match parse_expr(&ctx, variables, r) {
+                Ok(value) => match value {
+                    Value::Bool(b) => requires.push(Value::Bool(b)),
+                    Value::Var(var) => match var {
+                        Variable::Bool(b) => requires.push(Value::Var(Variable::Bool(b))),
+                        _ => return Err("Requires with a value that has wrong type".to_string()),
+                    },
+                    _ => return Err("Requires with a value that has wrong type".to_string()),
+                },
+                Err(e) => return Err(e),
             },
         };
     }
-    Ok(())
+    Ok((requires, ensures))
 }
 
 fn parse_expr<'a>(
@@ -181,7 +195,7 @@ fn parse_expr<'a>(
     // };
     match parse_expr_kind(&ctx, variables, kind) {
         Ok(value) => Ok(value),
-        Err(_) => Err("Unexpected expression type".to_string()),
+        Err(e) => Err(e),
     }
 }
 
@@ -295,9 +309,9 @@ fn parse_expr_kind<'a>(
                             Value::Int(var1) => match value2 {
                                 Value::Int(var2) => Ok(Value::Bool(var1 == var2)),
                                 Value::Var(var2) => match var2 {
-                                    Variable::Int(i) => {
-                                        Ok(Value::Bool(z3::ast::Int::from_i64(ctx, var1).eq(&i)))
-                                    }
+                                    Variable::Int(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Int::from_i64(ctx, var1)._eq(&i),
+                                    ))),
                                     _ => Err("== with a value that has wrong type".to_string()),
                                 },
                                 _ => Err("== with a value that has wrong type".to_string()),
@@ -305,30 +319,34 @@ fn parse_expr_kind<'a>(
                             Value::Bool(var1) => match value2 {
                                 Value::Bool(var2) => Ok(Value::Bool(var1 == var2)),
                                 Value::Var(var2) => match var2 {
-                                    Variable::Bool(i) => {
-                                        Ok(Value::Bool(z3::ast::Bool::from_bool(ctx, var1).eq(&i)))
-                                    }
+                                    Variable::Bool(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Bool::from_bool(ctx, var1)._eq(&i),
+                                    ))),
                                     _ => Err("== with a value that has wrong type".to_string()),
                                 },
                                 _ => Err("== with a value that has wrong type".to_string()),
                             },
                             Value::Var(var) => match var {
                                 Variable::Int(i) => match value2 {
-                                    Value::Int(var2) => {
-                                        Ok(Value::Bool(i.eq(&z3::ast::Int::from_i64(ctx, var2))))
-                                    }
+                                    Value::Int(var2) => Ok(Value::Var(Variable::Bool(
+                                        i._eq(&z3::ast::Int::from_i64(ctx, var2)),
+                                    ))),
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i2) => Ok(Value::Bool(i.eq(&i2))),
+                                        Variable::Int(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i._eq(&i2))))
+                                        }
                                         _ => Err("== with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("== with a value that has wrong type".to_string()),
                                 },
                                 Variable::Bool(i) => match value2 {
-                                    Value::Bool(var2) => {
-                                        Ok(Value::Bool(i.eq(&z3::ast::Bool::from_bool(ctx, var2))))
-                                    }
+                                    Value::Bool(var2) => Ok(Value::Var(Variable::Bool(
+                                        i._eq(&z3::ast::Bool::from_bool(ctx, var2)),
+                                    ))),
                                     Value::Var(var2) => match var2 {
-                                        Variable::Bool(i2) => Ok(Value::Bool(i.eq(&i2))),
+                                        Variable::Bool(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i._eq(&i2))))
+                                        }
                                         _ => Err("== with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("== with a value that has wrong type".to_string()),
@@ -520,9 +538,9 @@ fn parse_expr_kind<'a>(
                             Value::Int(var1) => match value2 {
                                 Value::Int(var2) => Ok(Value::Bool(var1 != var2)),
                                 Value::Var(var2) => match var2 {
-                                    Variable::Int(i) => {
-                                        Ok(Value::Bool(z3::ast::Int::from_i64(ctx, var1).ne(&i)))
-                                    }
+                                    Variable::Int(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Int::from_i64(ctx, var1)._eq(&i).not(),
+                                    ))),
                                     _ => Err("!= with a value that has wrong type".to_string()),
                                 },
                                 _ => Err("!= with a value that has wrong type".to_string()),
@@ -530,30 +548,34 @@ fn parse_expr_kind<'a>(
                             Value::Bool(var1) => match value2 {
                                 Value::Bool(var2) => Ok(Value::Bool(var1 != var2)),
                                 Value::Var(var2) => match var2 {
-                                    Variable::Bool(i) => {
-                                        Ok(Value::Bool(z3::ast::Bool::from_bool(ctx, var1).ne(&i)))
-                                    }
+                                    Variable::Bool(i) => Ok(Value::Var(Variable::Bool(
+                                        z3::ast::Bool::from_bool(ctx, var1)._eq(&i).not(),
+                                    ))),
                                     _ => Err("!= with a value that has wrong type".to_string()),
                                 },
                                 _ => Err("!= with a value that has wrong type".to_string()),
                             },
                             Value::Var(var) => match var {
                                 Variable::Int(i) => match value2 {
-                                    Value::Int(var2) => {
-                                        Ok(Value::Bool(i.ne(&z3::ast::Int::from_i64(ctx, var2))))
-                                    }
+                                    Value::Int(var2) => Ok(Value::Var(Variable::Bool(
+                                        i._eq(&z3::ast::Int::from_i64(ctx, var2)).not(),
+                                    ))),
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i2) => Ok(Value::Bool(i.ne(&i2))),
+                                        Variable::Int(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i._eq(&i2).not())))
+                                        }
                                         _ => Err("!= with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("!= with a value that has wrong type".to_string()),
                                 },
                                 Variable::Bool(i) => match value2 {
-                                    Value::Bool(var2) => {
-                                        Ok(Value::Bool(i.ne(&z3::ast::Bool::from_bool(ctx, var2))))
-                                    }
+                                    Value::Bool(var2) => Ok(Value::Var(Variable::Bool(
+                                        i._eq(&z3::ast::Bool::from_bool(ctx, var2)).not(),
+                                    ))),
                                     Value::Var(var2) => match var2 {
-                                        Variable::Bool(i2) => Ok(Value::Bool(i.ne(&i2))),
+                                        Variable::Bool(i2) => {
+                                            Ok(Value::Var(Variable::Bool(i._eq(&i2).not())))
+                                        }
                                         _ => Err("!= with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("!= with a value that has wrong type".to_string()),
@@ -694,8 +716,9 @@ fn parse_expr_kind<'a>(
 fn parse_body<'a>(
     ctx: &'a z3::Context,
     variables: &mut HashMap<String, Variable<'a>>,
+    solver: &z3::Solver,
     body: ast::Body,
-) -> Result<()> {
+) -> Result<(), String> {
     for stmt in body.statements {
         match stmt {
             ast::Statement::Var(var, expr) => {
@@ -705,30 +728,72 @@ fn parse_body<'a>(
                 match expr {
                     Some(expr) => {
                         match parse_expr(&ctx, variables, expr) {
-                            Ok(_value) => {}
-                            Err(_) => continue,
+                            Ok(value) => {}
+                            Err(e) => return Err(e),
                         };
                     }
-                    None => continue,
+                    None => {}
                 }
             }
             ast::Statement::Assert(expr) => {
                 match parse_expr(&ctx, variables, expr) {
-                    Ok(_value) => {}
-                    Err(_) => continue,
+                    Ok(value) => {}
+                    Err(e) => return Err(e),
                 };
             }
             ast::Statement::Assume(expr) => {
                 match parse_expr(&ctx, variables, expr) {
-                    Ok(_value) => {}
-                    Err(_) => continue,
+                    Ok(value) => {}
+                    Err(e) => return Err(e),
                 };
             }
             ast::Statement::Assignment(ident, expr) => {
-                println!("Assignment: {}", ident.text);
-                match parse_expr(&ctx, variables, expr) {
-                    Ok(_value) => {}
-                    Err(_) => continue,
+                match variables.clone().get(&ident.text).unwrap() {
+                    Variable::Bool(assigned) => {
+                        match parse_expr(&ctx, variables, expr) {
+                            Ok(value) => match value {
+                                Value::Bool(b) => assume(
+                                    solver,
+                                    &[assigned._eq(&z3::ast::Bool::from_bool(ctx, b))],
+                                ),
+                                Value::Var(var) => match var {
+                                    Variable::Bool(b) => assume(solver, &[assigned._eq(&b)]),
+                                    _ => {
+                                        return Err("Assignment with a value that has wrong type"
+                                            .to_string())
+                                    }
+                                },
+                                _ => {
+                                    return Err(
+                                        "Assignment with a value that has wrong type".to_string()
+                                    )
+                                }
+                            },
+                            Err(e) => return Err(e),
+                        };
+                    }
+                    Variable::Int(assigned) => {
+                        match parse_expr(&ctx, variables, expr) {
+                            Ok(value) => match value {
+                                Value::Int(b) => {
+                                    assume(solver, &[assigned._eq(&z3::ast::Int::from_i64(ctx, b))])
+                                }
+                                Value::Var(var) => match var {
+                                    Variable::Int(b) => assume(solver, &[assigned._eq(&b)]),
+                                    _ => {
+                                        return Err("Assignment with a value that has wrong type"
+                                            .to_string())
+                                    }
+                                },
+                                _ => {
+                                    return Err(
+                                        "Assignment with a value that has wrong type".to_string()
+                                    )
+                                }
+                            },
+                            Err(e) => return Err(e),
+                        };
+                    }
                 };
             }
             ast::Statement::MethodAssignment(idents, ident, exprs) => {
@@ -738,25 +803,25 @@ fn parse_body<'a>(
                 }
                 for expr in exprs {
                     match parse_expr(&ctx, variables, expr) {
-                        Ok(_value) => {}
-                        Err(_) => continue,
+                        Ok(value) => {}
+                        Err(e) => return Err(e),
                     };
                 }
             }
             ast::Statement::If(expr, body, body_opt) => {
                 match parse_expr(&ctx, variables, expr) {
-                    Ok(_value) => {}
-                    Err(_) => continue,
+                    Ok(value) => {}
+                    Err(e) => return Err(e),
                 };
-                match parse_body(&ctx, variables, body) {
+                match parse_body(&ctx, variables, solver, body) {
                     Ok(()) => {}
-                    Err(_) => continue,
+                    Err(e) => return Err(e),
                 };
                 match body_opt {
                     Some(body) => {
-                        match parse_body(&ctx, variables, body) {
+                        match parse_body(&ctx, variables, solver, body) {
                             Ok(()) => {}
-                            Err(_) => continue,
+                            Err(e) => return Err(e),
                         };
                     }
                     None => continue,
@@ -768,18 +833,18 @@ fn parse_body<'a>(
                 body,
             } => {
                 match parse_expr(&ctx, variables, condition) {
-                    Ok(_value) => {}
-                    Err(_) => continue,
+                    Ok(value) => {}
+                    Err(e) => return Err(e),
                 };
                 for invariant in invariants {
                     match parse_expr(&ctx, variables, invariant) {
-                        Ok(_value) => {}
-                        Err(_) => continue,
+                        Ok(value) => {}
+                        Err(e) => return Err(e),
                     };
                 }
-                match parse_body(&ctx, variables, body) {
+                match parse_body(&ctx, variables, solver, body) {
                     Ok(()) => {}
-                    Err(_) => continue,
+                    Err(e) => return Err(e),
                 };
             }
         }
