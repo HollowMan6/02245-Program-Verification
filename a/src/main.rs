@@ -52,7 +52,8 @@ fn main() -> Result<()> {
                                             println!("The body of file {p} parsed successfully");
                                         }
                                         Err(e) => {
-                                            println!("{e}")
+                                            println!("{e}");
+                                            continue;
                                         }
                                     };
                                 }
@@ -74,16 +75,21 @@ fn main() -> Result<()> {
                                         Value::Var(Variable::Bool(ensure)),
                                     ) {
                                         Ok(_) => {}
-                                        Err(e) => println!("{e}"),
+                                        Err(e) => {
+                                            println!("{e}");
+                                            continue;
+                                        }
                                     }
                                 }
                                 Err(e) => {
-                                    println!("{e}")
+                                    println!("{e}");
+                                    continue;
                                 }
                             };
                         }
                         Err(e) => {
-                            println!("{e}")
+                            println!("{e}");
+                            continue;
                         }
                     };
                 }
@@ -114,6 +120,11 @@ fn main() -> Result<()> {
                             match body {
                                 Some(body) => {
                                     // TODO: Add support for functions calling check
+                                    let location_msg = format!(
+                                        " at location {}-{}",
+                                        body.span.start(),
+                                        body.span.end()
+                                    );
                                     match match parse_expr(
                                         &ctx,
                                         &mut variables,
@@ -132,11 +143,13 @@ fn main() -> Result<()> {
                                         Ok(a) => {
                                             assumptions = a;
                                             println!(
-                                                "The function of file {p} parsed successfully"
+                                                "The function of file {p} parsed successfully {}",
+                                                &location_msg
                                             );
                                         }
                                         Err(e) => {
-                                            println!("{e}")
+                                            println!("{e} {}", &location_msg);
+                                            continue;
                                         }
                                     };
                                 }
@@ -158,16 +171,21 @@ fn main() -> Result<()> {
                                         Value::Var(Variable::Bool(ensure)),
                                     ) {
                                         Ok(_) => {}
-                                        Err(e) => println!("{e}"),
+                                        Err(e) => {
+                                            println!("{e}");
+                                            continue;
+                                        }
                                     }
                                 }
                                 Err(e) => {
-                                    println!("{e}")
+                                    println!("{e}");
+                                    continue;
                                 }
                             };
                         }
                         Err(e) => {
-                            println!("{e}")
+                            println!("{e}");
+                            continue;
                         }
                     };
                 }
@@ -1166,6 +1184,7 @@ fn parse_body<'a>(
 ) -> Result<Vec<z3::ast::Bool<'a>>, String> {
     let mut assumptions = assumptions;
     for stmt in body.statements {
+        let mut location_msg = "".to_string();
         assumptions = match match stmt {
             ast::Statement::Var(var, expr) => {
                 let ast::Var { name, ty } = var;
@@ -1178,6 +1197,7 @@ fn parse_body<'a>(
                 }
             }
             ast::Statement::Assert(expr) => {
+                location_msg = format!(" at location {}-{}", expr.span.start(), expr.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), expr) {
                     Ok((value, _)) => match value.clone() {
                         Value::Bool(b) => {
@@ -1189,14 +1209,21 @@ fn parse_body<'a>(
                                 solver.assert(&b);
                                 add_assumption(ctx, solver, assumptions, value)
                             }
-                            _ => return Err("Assert with a value that has wrong type".to_string()),
+                            _ => {
+                                return Err("Assert with a value that has wrong type".to_string()
+                                    + &location_msg)
+                            }
                         },
-                        _ => return Err("Assert with a value that has wrong type".to_string()),
+                        _ => {
+                            return Err("Assert with a value that has wrong type".to_string()
+                                + &location_msg)
+                        }
                     },
-                    Err(e) => return Err(e),
+                    Err(e) => return Err(e + &location_msg),
                 }
             }
             ast::Statement::Assume(expr) => {
+                location_msg = format!(" at location {}-{}", expr.span.start(), expr.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), expr) {
                     Ok((value, _)) => match value.clone() {
                         Value::Bool(b) => add_assumption(
@@ -1209,11 +1236,17 @@ fn parse_body<'a>(
                             Variable::Bool(_) => {
                                 add_assumption(ctx, solver, assumptions.clone(), value)
                             }
-                            _ => return Err("Assume with a value that has wrong type".to_string()),
+                            _ => {
+                                return Err("Assume with a value that has wrong type".to_string()
+                                    + &location_msg)
+                            }
                         },
-                        _ => return Err("Assume with a value that has wrong type".to_string()),
+                        _ => {
+                            return Err("Assume with a value that has wrong type".to_string()
+                                + &location_msg)
+                        }
                     },
-                    Err(e) => return Err(e),
+                    Err(e) => return Err(e + &location_msg),
                 }
             }
             ast::Statement::Assignment(ident, expr) => {
@@ -1226,14 +1259,17 @@ fn parse_body<'a>(
                     println!("Var: {}", ident.text);
                 }
                 for expr in exprs {
+                    let location_msg =
+                        format!(" at location {}-{}", expr.span.start(), expr.span.end());
                     match parse_expr(&ctx, variables, counter, "".to_string(), expr) {
                         Ok(_) => {}
-                        Err(e) => return Err(e),
+                        Err(e) => return Err(e + &location_msg),
                     };
                 }
                 Ok(assumptions)
             }
             ast::Statement::If(expr, body, body_opt) => {
+                location_msg = format!(" at location {}-{}", expr.span.start(), expr.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), expr) {
                     Ok((value, _)) => {
                         let mut if_branch_counter = counter.clone();
@@ -1249,10 +1285,10 @@ fn parse_body<'a>(
                                         body,
                                     ) {
                                         Ok(a) => a,
-                                        Err(e) => return Err(e),
+                                        Err(e) => return Err(e + &location_msg),
                                     }
                                 }
-                                Err(e) => return Err(e),
+                                Err(e) => return Err(e + &location_msg),
                             };
                         let mut else_branch_counter = counter.clone();
                         match body_opt {
@@ -1264,12 +1300,12 @@ fn parse_body<'a>(
                                             Ok(Value::Var(Variable::Bool(b.not())))
                                         }
                                         _ => Err("if condition with a value that has wrong type"
-                                            .to_string()),
+                                            .to_string()
+                                            + &location_msg),
                                     },
-                                    _ => {
-                                        Err("if condition with a value that has wrong type"
-                                            .to_string())
-                                    }
+                                    _ => Err("if condition with a value that has wrong type"
+                                        .to_string()
+                                        + &location_msg),
                                 } {
                                     Ok(else_ass) => {
                                         match add_assumption(ctx, solver, assumptions, else_ass) {
@@ -1311,16 +1347,16 @@ fn parse_body<'a>(
                                                                 match if_branch_var {
                                                                     Variable::Bool(var1) => match else_branch_var {
                                                                         Variable::Bool(var2) => Value::Var(Variable::Bool(var1._eq(var2))),
-                                                                        _ => return Err("Unmatched var in fresh var assignment".to_string())
+                                                                        _ => return Err("Unmatched var in fresh var assignment".to_string() + &location_msg)
                                                                     }
                                                                     Variable::Int(var1) => match else_branch_var {
                                                                         Variable::Int(var2) => Value::Var(Variable::Bool(var1._eq(var2))),
-                                                                        _ => return Err("Unmatched var in fresh var assignment".to_string())
+                                                                        _ => return Err("Unmatched var in fresh var assignment".to_string() + &location_msg)
                                                                     }
                                                                 },
                                                             ) {
                                                                 Ok(a) => a,
-                                                                Err(e) => return Err(e),
+                                                                Err(e) => return Err(e + &location_msg),
                                                             }
                                                             } else if else_branch > if_branch {
                                                                 num = else_branch.clone();
@@ -1331,16 +1367,16 @@ fn parse_body<'a>(
                                                                     match else_branch_var {
                                                                         Variable::Bool(var1) => match if_branch_var {
                                                                             Variable::Bool(var2) => Value::Var(Variable::Bool(var1._eq(var2))),
-                                                                            _ => return Err("Unmatched var in fresh var assignment".to_string())
+                                                                            _ => return Err("Unmatched var in fresh var assignment".to_string() + &location_msg)
                                                                         }
                                                                         Variable::Int(var1) => match if_branch_var {
                                                                             Variable::Int(var2) => Value::Var(Variable::Bool(var1._eq(var2))),
-                                                                            _ => return Err("Unmatched var in fresh var assignment".to_string())
+                                                                            _ => return Err("Unmatched var in fresh var assignment".to_string() + &location_msg)
                                                                         }
                                                                     },
                                                                 ) {
                                                                     Ok(a) => a,
-                                                                    Err(e) => return Err(e),
+                                                                    Err(e) => return Err(e + &location_msg),
                                                                 }
                                                             }
                                                             counter.insert(key.clone(), num);
@@ -1348,19 +1384,19 @@ fn parse_body<'a>(
                                                         Ok(vec![assumptions_if.clone(), final_ass]
                                                             .concat())
                                                     }
-                                                    Err(e) => Err(e),
+                                                    Err(e) => Err(e + &location_msg),
                                                 }
                                             }
-                                            Err(e) => Err(e),
+                                            Err(e) => Err(e + &location_msg),
                                         }
                                     }
-                                    Err(e) => Err(e),
+                                    Err(e) => Err(e + &location_msg),
                                 }
                             }
                             None => Ok(assumptions_if),
                         }
                     }
-                    Err(e) => return Err(e),
+                    Err(e) => return Err(e + &location_msg),
                 }
             }
             ast::Statement::While {
@@ -1369,23 +1405,28 @@ fn parse_body<'a>(
                 body: _,
             } => {
                 // TODO: Support while, now we just skip while block
+                location_msg = format!(
+                    " at location {}-{}",
+                    condition.span.start(),
+                    condition.span.end()
+                );
                 match parse_expr(&ctx, variables, counter, "".to_string(), condition) {
                     Ok(_) => {
                         break;
                         // for invariant in invariants {
                         //     match parse_expr(&ctx, variables, counter, "".to_string(), invariant) {
                         //         Ok(_) => {}
-                        //         Err(e) => return Err(e),
+                        //         Err(e) => return Err(e + &location_msg),
                         //     };
                         // }
                         // parse_body(&ctx, variables, counter, solver, assumptions.clone(), body)
                     }
-                    Err(e) => return Err(e),
+                    Err(e) => return Err(e + &location_msg),
                 }
             }
         } {
             Ok(a) => a,
-            Err(e) => return Err(e),
+            Err(e) => return Err(e + &location_msg),
         }
     }
     Ok(assumptions)
@@ -1400,6 +1441,7 @@ fn parse_assignment<'a>(
     ident: ast::Ident,
     expr: ast::Expr,
 ) -> Result<Vec<z3::ast::Bool<'a>>, String> {
+    let location_msg = format!(" at location {}-{}", expr.span.start(), expr.span.end());
     match variables
         .clone()
         .get(&(ident.text.clone() + &counter.get(&ident.text.clone()).unwrap().to_string()))
@@ -1413,9 +1455,9 @@ fn parse_assignment<'a>(
                         assigned = match fresh_variable(ctx, variables, counter, ident.text) {
                             Variable::Bool(b) => b,
                             _ => {
-                                return Err(
-                                    "Assignment with a fresh value that has wrong type".to_string()
-                                )
+                                return Err("Assignment with a fresh value that has wrong type"
+                                    .to_string()
+                                    + &location_msg)
                             }
                         }
                     }
@@ -1436,15 +1478,18 @@ fn parse_assignment<'a>(
                                 Value::Var(Variable::Bool(assigned._eq(&b))),
                             ),
                             _ => {
-                                return Err(
-                                    "Assignment with a value that has wrong type".to_string()
-                                )
+                                return Err("Assignment with a value that has wrong type"
+                                    .to_string()
+                                    + &location_msg)
                             }
                         },
-                        _ => return Err("Assignment with a value that has wrong type".to_string()),
+                        _ => {
+                            return Err("Assignment with a value that has wrong type".to_string()
+                                + &location_msg)
+                        }
                     }
                 }
-                Err(e) => return Err(e),
+                Err(e) => return Err(e + &location_msg),
             }
         }
         Variable::Int(assigned) => {
@@ -1455,9 +1500,9 @@ fn parse_assignment<'a>(
                         assigned = match fresh_variable(ctx, variables, counter, ident.text) {
                             Variable::Int(i) => i,
                             _ => {
-                                return Err(
-                                    "Assignment with a fresh value that has wrong type".to_string()
-                                )
+                                return Err("Assignment with a fresh value that has wrong type"
+                                    .to_string()
+                                    + &location_msg)
                             }
                         }
                     }
@@ -1478,15 +1523,18 @@ fn parse_assignment<'a>(
                                 Value::Var(Variable::Bool(assigned._eq(&b))),
                             ),
                             _ => {
-                                return Err(
-                                    "Assignment with a value that has wrong type".to_string()
-                                )
+                                return Err("Assignment with a value that has wrong type"
+                                    .to_string()
+                                    + &location_msg)
                             }
                         },
-                        _ => return Err("Assignment with a value that has wrong type".to_string()),
+                        _ => {
+                            return Err("Assignment with a value that has wrong type".to_string()
+                                + &location_msg)
+                        }
                     }
                 }
-                Err(e) => return Err(e),
+                Err(e) => return Err(e + &location_msg),
             }
         }
     }
