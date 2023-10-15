@@ -309,7 +309,6 @@ fn parse_expr_kind<'a>(
         ast::ExprKind::Call(ident, exprs) => {
             println!("Call: {}", ident.text);
             for expr in exprs {
-                // TODO: handle multiple exprs
                 parse_expr(&ctx, variables, expr);
             }
             Ok(Value::Var(variables.get(&ident.text).unwrap().clone()))
@@ -790,20 +789,50 @@ fn parse_expr_kind<'a>(
             }
         }
         ast::ExprKind::Quantification(quantifier, var, expr) => {
-            // TODO: handle quantifier
-            match quantifier {
-                ast::Quantifier::Forall => {
-                    println!("Quantifier: Forall");
-                }
-                ast::Quantifier::Exists => {
-                    println!("Quantifier: Exists");
-                }
-            }
             let ast::Var { name, ty } = var;
             println!("Var: {}", name.text);
-            parse_type(&ctx, variables, name.text, ty);
+            parse_type(&ctx, variables, name.text.clone(), ty);
             match parse_expr(&ctx, variables, expr) {
-                Ok(value) => Ok(value),
+                Ok(value) => {
+                    let body = match value {
+                        Value::Bool(b) => z3::ast::Bool::from_bool(ctx, b),
+                        Value::Var(var) => match var {
+                            Variable::Bool(b) => b,
+                            _ => {
+                                return Err(
+                                    "Quantification with a value that has wrong type".to_string()
+                                )
+                            }
+                        },
+                        _ => {
+                            return Err(
+                                "Quantification with a value that has wrong type".to_string()
+                            )
+                        }
+                    };
+                    match quantifier {
+                        ast::Quantifier::Forall => {
+                            match variables.get(&name.text).unwrap().clone() {
+                                Variable::Bool(bound) => Ok(Value::Var(Variable::Bool(
+                                    z3::ast::forall_const(ctx, &[&bound], &[], &body),
+                                ))),
+                                Variable::Int(bound) => Ok(Value::Var(Variable::Bool(
+                                    z3::ast::forall_const(ctx, &[&bound], &[], &body),
+                                ))),
+                            }
+                        }
+                        ast::Quantifier::Exists => {
+                            match variables.get(&name.text).unwrap().clone() {
+                                Variable::Bool(bound) => Ok(Value::Var(Variable::Bool(
+                                    z3::ast::exists_const(ctx, &[&bound], &[], &body),
+                                ))),
+                                Variable::Int(bound) => Ok(Value::Var(Variable::Bool(
+                                    z3::ast::exists_const(ctx, &[&bound], &[], &body),
+                                ))),
+                            }
+                        }
+                    }
+                }
                 Err(e) => Err(e),
             }
         }
@@ -823,18 +852,11 @@ fn parse_body<'a>(
         assumptions = match match stmt {
             ast::Statement::Var(var, expr) => {
                 let ast::Var { name, ty } = var;
-                println!("Var: {}", name.text);
-                parse_type(&ctx, variables, name.text, ty);
+                parse_type(&ctx, variables, name.text.clone(), ty);
                 match expr {
-                    Some(expr) => {
-                        match parse_expr(&ctx, variables, expr) {
-                            Ok(value) => {}
-                            Err(e) => return Err(e),
-                        };
-                    }
-                    None => {}
+                    Some(expr) => parse_assignment(ctx, variables, solver, assumptions, name, expr),
+                    None => Ok(assumptions),
                 }
-                Ok(assumptions)
             }
             ast::Statement::Assert(expr) => match parse_expr(&ctx, variables, expr) {
                 Ok(value) => match value {
@@ -872,72 +894,10 @@ fn parse_body<'a>(
                 Err(e) => return Err(e),
             },
             ast::Statement::Assignment(ident, expr) => {
-                match variables.clone().get(&ident.text).unwrap() {
-                    Variable::Bool(assigned) => match parse_expr(&ctx, variables, expr) {
-                        Ok(value) => match value {
-                            Value::Bool(b) => add_assumption(
-                                ctx,
-                                solver,
-                                assumptions.clone(),
-                                Value::Var(Variable::Bool(
-                                    assigned._eq(&z3::ast::Bool::from_bool(ctx, b)),
-                                )),
-                            ),
-                            Value::Var(var) => match var {
-                                Variable::Bool(b) => add_assumption(
-                                    ctx,
-                                    solver,
-                                    assumptions.clone(),
-                                    Value::Var(Variable::Bool(assigned._eq(&b))),
-                                ),
-                                _ => {
-                                    return Err(
-                                        "Assignment with a value that has wrong type".to_string()
-                                    )
-                                }
-                            },
-                            _ => {
-                                return Err(
-                                    "Assignment with a value that has wrong type".to_string()
-                                )
-                            }
-                        },
-                        Err(e) => return Err(e),
-                    },
-                    Variable::Int(assigned) => match parse_expr(&ctx, variables, expr) {
-                        Ok(value) => match value {
-                            Value::Int(b) => add_assumption(
-                                ctx,
-                                solver,
-                                assumptions.clone(),
-                                Value::Var(Variable::Bool(
-                                    assigned._eq(&z3::ast::Int::from_i64(ctx, b)),
-                                )),
-                            ),
-                            Value::Var(var) => match var {
-                                Variable::Int(b) => add_assumption(
-                                    ctx,
-                                    solver,
-                                    assumptions.clone(),
-                                    Value::Var(Variable::Bool(assigned._eq(&b))),
-                                ),
-                                _ => {
-                                    return Err(
-                                        "Assignment with a value that has wrong type".to_string()
-                                    )
-                                }
-                            },
-                            _ => {
-                                return Err(
-                                    "Assignment with a value that has wrong type".to_string()
-                                )
-                            }
-                        },
-                        Err(e) => return Err(e),
-                    },
-                }
+                parse_assignment(ctx, variables, solver, assumptions, ident, expr)
             }
             ast::Statement::MethodAssignment(idents, ident, exprs) => {
+                // TODO: Support method assignment
                 println!("MethodAssignment: {}", ident.text);
                 for ident in idents {
                     println!("Var: {}", ident.text);
@@ -950,25 +910,62 @@ fn parse_body<'a>(
                 }
                 Ok(assumptions)
             }
-            ast::Statement::If(expr, body, body_opt) => {
-                match parse_expr(&ctx, variables, expr) {
-                    Ok(value) => {}
-                    Err(e) => return Err(e),
-                };
-                match parse_body(&ctx, variables, solver, assumptions.clone(), body) {
-                    Ok(a) => a,
-                    Err(e) => return Err(e),
-                };
-                match body_opt {
-                    Some(body) => parse_body(&ctx, variables, solver, assumptions.clone(), body),
-                    None => continue,
+            ast::Statement::If(expr, body, body_opt) => match parse_expr(&ctx, variables, expr) {
+                Ok(value) => {
+                    let assumptions_if =
+                        match add_assumption(ctx, solver, assumptions.clone(), value.clone()) {
+                            Ok(if_ass) => match parse_body(&ctx, variables, solver, if_ass, body) {
+                                Ok(a) => a,
+                                Err(e) => return Err(e),
+                            },
+                            Err(e) => return Err(e),
+                        };
+                    match body_opt {
+                        Some(body) => {
+                            match match value {
+                                Value::Bool(b) => Ok(Value::Bool(!b)),
+                                Value::Var(var) => match var {
+                                    Variable::Bool(b) => Ok(Value::Var(Variable::Bool(b.not()))),
+                                    _ => {
+                                        Err("if condition with a value that has wrong type"
+                                            .to_string())
+                                    }
+                                },
+                                _ => {
+                                    Err("if condition with a value that has wrong type".to_string())
+                                }
+                            } {
+                                Ok(else_ass) => {
+                                    match add_assumption(ctx, solver, assumptions, else_ass) {
+                                        Ok(else_assumptions) => match parse_body(
+                                            &ctx,
+                                            variables,
+                                            solver,
+                                            else_assumptions,
+                                            body,
+                                        ) {
+                                            Ok(final_ass) => {
+                                                Ok(vec![assumptions_if.clone(), final_ass].concat())
+                                            }
+                                            Err(e) => Err(e),
+                                        },
+                                        Err(e) => Err(e),
+                                    }
+                                }
+                                Err(e) => Err(e),
+                            }
+                        }
+                        None => Ok(assumptions_if),
+                    }
                 }
-            }
+                Err(e) => return Err(e),
+            },
             ast::Statement::While {
                 condition,
                 invariants,
                 body,
             } => {
+                // TODO: Support while
                 match parse_expr(&ctx, variables, condition) {
                     Ok(value) => {}
                     Err(e) => return Err(e),
@@ -987,4 +984,62 @@ fn parse_body<'a>(
         }
     }
     Ok(assumptions)
+}
+
+fn parse_assignment<'a>(
+    ctx: &'a z3::Context,
+    variables: &mut HashMap<String, Variable<'a>>,
+    solver: &z3::Solver,
+    assumptions: Vec<z3::ast::Bool<'a>>,
+    ident: ast::Ident,
+    expr: ast::Expr,
+) -> Result<Vec<z3::ast::Bool<'a>>, String> {
+    match variables.clone().get(&ident.text).unwrap() {
+        Variable::Bool(assigned) => match parse_expr(&ctx, variables, expr) {
+            Ok(value) => match value {
+                Value::Bool(b) => add_assumption(
+                    ctx,
+                    solver,
+                    assumptions.clone(),
+                    Value::Var(Variable::Bool(
+                        assigned._eq(&z3::ast::Bool::from_bool(ctx, b)),
+                    )),
+                ),
+                Value::Var(var) => match var {
+                    Variable::Bool(b) => add_assumption(
+                        ctx,
+                        solver,
+                        assumptions.clone(),
+                        Value::Var(Variable::Bool(assigned._eq(&b))),
+                    ),
+                    _ => return Err("Assignment with a value that has wrong type".to_string()),
+                },
+                _ => return Err("Assignment with a value that has wrong type".to_string()),
+            },
+            Err(e) => return Err(e),
+        },
+        Variable::Int(assigned) => match parse_expr(&ctx, variables, expr) {
+            Ok(value) => match value {
+                Value::Int(b) => add_assumption(
+                    ctx,
+                    solver,
+                    assumptions.clone(),
+                    Value::Var(Variable::Bool(
+                        assigned._eq(&z3::ast::Int::from_i64(ctx, b)),
+                    )),
+                ),
+                Value::Var(var) => match var {
+                    Variable::Int(b) => add_assumption(
+                        ctx,
+                        solver,
+                        assumptions.clone(),
+                        Value::Var(Variable::Bool(assigned._eq(&b))),
+                    ),
+                    _ => return Err("Assignment with a value that has wrong type".to_string()),
+                },
+                _ => return Err("Assignment with a value that has wrong type".to_string()),
+            },
+            Err(e) => return Err(e),
+        },
+    }
 }
