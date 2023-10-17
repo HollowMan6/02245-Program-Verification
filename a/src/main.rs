@@ -33,6 +33,8 @@ fn main() -> Result<()> {
                         &ctx,
                         &mut variables,
                         &mut counter,
+                        &solver,
+                        Vec::new(),
                         specifications.clone(),
                         true,
                     ) {
@@ -66,6 +68,8 @@ fn main() -> Result<()> {
                                 &ctx,
                                 &mut variables,
                                 &mut counter,
+                                &solver,
+                                assumptions.clone(),
                                 specifications,
                                 false,
                             ) {
@@ -120,6 +124,8 @@ fn main() -> Result<()> {
                         &ctx,
                         &mut variables,
                         &mut counter,
+                        &solver,
+                        Vec::new(),
                         specifications.clone(),
                         true,
                     ) {
@@ -183,11 +189,12 @@ fn main() -> Result<()> {
                                 &ctx,
                                 &mut variables,
                                 &mut counter,
+                                &solver,
+                                assumptions.clone(),
                                 specifications,
                                 false,
                             ) {
                                 Ok(ensure) => {
-                                    solver.assert(&ensure);
                                     match add_assumption(
                                         &ctx,
                                         &solver,
@@ -239,7 +246,7 @@ enum Value<'a> {
     // None,
 }
 
-pub struct Wrong {
+struct Wrong {
     msg: String,
     span: (usize, usize),
 }
@@ -364,10 +371,13 @@ fn parse_specs<'a>(
     ctx: &'a z3::Context,
     variables: &mut HashMap<String, Variable<'a>>,
     counter: &mut HashMap<String, i64>,
+    solver: &z3::Solver,
+    assumptions: Vec<z3::ast::Bool<'a>>,
     specs: Vec<ast::Specification>,
     requires: bool,
 ) -> Result<z3::ast::Bool<'a>, Wrong> {
     let mut conditions = Vec::new();
+    let mut assumptions = assumptions;
     for spec in specs {
         match spec {
             ast::Specification::Ensures(e) => {
@@ -376,22 +386,42 @@ fn parse_specs<'a>(
                 }
                 let location = (e.span.start(), e.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), e) {
-                    Ok((value, _)) => match value {
-                        Value::Bool(b) => conditions.push(z3::ast::Bool::from_bool(ctx, b)),
+                    Ok((value, _)) => match match value {
+                        Value::Bool(b) => Ok(z3::ast::Bool::from_bool(ctx, b)),
                         Value::Var(var) => match var {
-                            Variable::Bool(b) => conditions.push(b),
-                            _ => {
-                                return Err(Wrong {
+                            Variable::Bool(b) => Ok(b),
+                            _ => Err(Wrong {
                                     msg: "Ensures with a value that has wrong type".to_string(),
                                     span: location,
                                 })
-                            }
                         },
-                        _ => {
-                            return Err(Wrong {
+                        _ => Err(Wrong {
                                 msg: "Ensures with a value that has wrong type".to_string(),
                                 span: location,
                             })
+                    } {
+                        Ok(ensure) => {
+                            conditions.push(ensure.clone());
+                            solver.assert(&ensure);
+                            match add_assumption(
+                                &ctx,
+                                &solver,
+                                assumptions.clone(),
+                                Value::Var(Variable::Bool(ensure)),
+                            ) {
+                                Ok(a) => {
+                                    assumptions = a;
+                                }
+                                Err(e) => {
+                                    return Err(Wrong {
+                                        msg: e,
+                                        span: location,
+                                    })
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            return Err(e);
                         }
                     },
                     Err(e) => {
@@ -1566,7 +1596,7 @@ fn parse_body<'a>(
                 invariants: _,
                 body: _,
             } => {
-                // TODO: Support while, now we just skip while block
+                // TODO: Support while, now we just skip everything after while block
                 location = (condition.span.start(), condition.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), condition) {
                     Ok(_) => {
