@@ -1,6 +1,6 @@
 use crate::ast::{
     // IF ELSE dependences
-    Body, Document, DocumentItem, Expr, Specification, Statement,ExprKind,UOp
+    Body, Document, DocumentItem, Expr, Specification, Statement, ExprKind, UOp, Op, Type
 };
 
 
@@ -23,6 +23,8 @@ impl Encode1Context {
         Self::replace_if(&mut new_doc)?;
         Self::add_postcondition(&mut new_doc)?;
         Self::add_precondition(&mut new_doc)?;
+
+        Self::replace_assignments_with_assume(&mut new_doc)?;
 
         Ok(new_doc)
     }
@@ -131,6 +133,37 @@ impl Encode1Context {
         Ok(doc.clone())
     }
 
+    fn replace_assignments_with_assume(doc: &mut Document) -> miette::Result<Document> {
+        for item in &mut doc.items {
+            if let DocumentItem::Method(method) = item {
+                if let Some(body) = &mut method.body {
+                    let mut new_statements = Vec::new();
+    
+                    for statement in &body.statements {
+                        if let Statement::Assignment(ident, expr) = statement {
+                            let new_ident = Expr {
+                                kind: Box::new(ExprKind::Var(ident.clone())),
+                                span: expr.span.clone(),
+                                ty: expr.ty.clone(),
+                            };
+                            let new_binary = ExprKind::Binary(new_ident.clone(), Op::Eq, expr.clone());
+                            let mut new_expr = expr.clone();
+                            new_expr.kind = Box::new(new_binary);
+                            new_expr.ty = Type::Bool;
+                            let assumption = Statement::Assume(new_expr.clone());
+                            new_statements.push(assumption);
+                        } else {
+                            new_statements.push(statement.clone());
+                        }
+                    }
+    
+                    body.statements = new_statements;
+                }
+            }
+        }
+        Ok(doc.clone())
+    }
+    
 
 
 }

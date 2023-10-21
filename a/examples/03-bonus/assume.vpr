@@ -1,0 +1,12 @@
+
+method validateAssumptions() 
+{
+    var x0: Int
+    var y0: Int
+    var y1: Int
+    assume x0 > 0
+    assume x0 == 5
+    assume y0 == 6
+    assume y1 == y0 
+    assert y1 > x0
+}
