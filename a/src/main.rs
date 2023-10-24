@@ -39,7 +39,7 @@ fn main() -> Result<()> {
                         true,
                     ) {
                         Ok(require) => {
-                            let mut assumptions: Vec<z3::ast::Bool> = vec![require];
+                            let mut assumptions: Vec<Vec<z3::ast::Bool>> = vec![vec![require]];
                             match body {
                                 Some(b) => {
                                     match parse_body(
@@ -73,21 +73,7 @@ fn main() -> Result<()> {
                                 specifications,
                                 false,
                             ) {
-                                Ok(ensure) => {
-                                    solver.assert(&ensure);
-                                    match add_assumption(
-                                        &ctx,
-                                        &solver,
-                                        assumptions.clone(),
-                                        Value::Var(Variable::Bool(ensure)),
-                                    ) {
-                                        Ok(a) => a,
-                                        Err(e) => {
-                                            println!("{e} at ensures in file {p}");
-                                            continue;
-                                        }
-                                    }
-                                }
+                                Ok(_) => assumptions,
                                 Err(e) => {
                                     println!("{:?}", generate_error(e, code.clone(), p.clone()));
                                     continue;
@@ -130,7 +116,7 @@ fn main() -> Result<()> {
                         true,
                     ) {
                         Ok(require) => {
-                            let mut assumptions: Vec<z3::ast::Bool> = vec![require];
+                            let mut assumptions: Vec<Vec<z3::ast::Bool>> = vec![vec![require]];
                             match body {
                                 Some(body) => {
                                     // TODO: Add support for functions calling check
@@ -143,12 +129,9 @@ fn main() -> Result<()> {
                                         "".to_string(),
                                         body,
                                     ) {
-                                        Ok((value, _)) => add_assumption(
-                                            &ctx,
-                                            &solver,
-                                            assumptions.clone(),
-                                            value,
-                                        ),
+                                        Ok(value) => {
+                                            add_assumption(&ctx, assumptions.clone(), value)
+                                        }
                                         Err(e) => {
                                             println!(
                                                 "{:?}",
@@ -197,7 +180,6 @@ fn main() -> Result<()> {
                                 Ok(ensure) => {
                                     match add_assumption(
                                         &ctx,
-                                        &solver,
                                         assumptions.clone(),
                                         Value::Var(Variable::Bool(ensure)),
                                     ) {
@@ -261,41 +243,52 @@ fn generate_error(Wrong { msg, span }: Wrong, file: String, path: String) -> Rep
     .with_source_code(file)
 }
 
-fn assume<'a>(
+fn assert<'a>(
+    ctx: &'a z3::Context,
     solver: &z3::Solver<'a>,
-    assumptions: &[z3::ast::Bool],
-) -> Result<z3::Model<'a>, String> {
-    // dbg!(assumptions);
-    match solver.check_assumptions(assumptions) {
-        z3::SatResult::Unsat => {
-            // for unsat in solver.get_unsat_core() {
-            //     dbg!(unsat);
-            // }
-            Err(" + This assertion is unsatisfiable!".to_string())
+    assumptions: &[Vec<z3::ast::Bool>],
+    assertion: z3::ast::Bool<'a>,
+) -> Result<(), String> {
+    for assumption in assumptions {
+        let mut condition = if assumption.len() > 0 {
+            assumption[0].clone()
+        } else {
+            z3::ast::Bool::from_bool(ctx, true)
+        };
+        for r in assumption.iter().skip(1) {
+            condition = z3::ast::Bool::and(ctx, &[&condition, r]);
         }
-        z3::SatResult::Unknown => {
-            if let Some(model) = solver.get_model() {
-                return Ok(model);
+        let to_check = [z3::ast::Bool::and(ctx, &[&condition]).implies(&assertion).not()];
+        print!("Checking assertion: ");
+        dbg!(&to_check);
+        match solver.check_assumptions(&to_check) {
+            z3::SatResult::Unsat => {
+                // for unsat in solver.get_unsat_core() {
+                //     dbg!(unsat);
+                // }
+                println!("OK");
             }
-            Err(" + This assertion may be satisfiable but couldn't extract a model".to_string())
-        }
-        z3::SatResult::Sat => {
-            // println!(" + The assertions were all satisfiable!");
-            let model = solver
-                .get_model()
-                .expect("a model exists since we got 'Sat'");
-            Ok(model)
-        }
+            z3::SatResult::Unknown => {
+                if let Some(_) = solver.get_model() {
+                    continue;
+                }
+                return Err(" + This assertion may be insatisfiable but couldn't extract a model".to_string());
+                
+            }
+            z3::SatResult::Sat => {
+                return Err(" + This assertion is unsatisfiable!".to_string());
+            }
+        };
     }
+    Ok(())
 }
 
 fn add_assumption<'a>(
     ctx: &'a z3::Context,
-    solver: &z3::Solver,
-    assumptions: Vec<z3::ast::Bool<'a>>,
+    assumptions: Vec<Vec<z3::ast::Bool<'a>>>,
     assumption: Value<'a>,
-) -> Result<Vec<z3::ast::Bool<'a>>, String> {
-    let mut new_assumptions = Vec::new();
+) -> Result<Vec<Vec<z3::ast::Bool<'a>>>, String> {
+    let mut new_assumptions:Vec<Vec<z3::ast::Bool<'a>>> = Vec::new();
     let actual_assumption = match assumption {
         Value::Bool(b) => Some(z3::ast::Bool::from_bool(ctx, b)),
         Value::Var(var) => match var {
@@ -307,19 +300,14 @@ fn add_assumption<'a>(
     };
     match actual_assumption {
         Some(a) => {
-            for ass in assumptions {
-                new_assumptions.push(ass.implies(&a))
+            for mut ass in assumptions {
+                ass.push(a.clone());
+                new_assumptions.push(ass)
             }
         }
-        None => new_assumptions = assumptions,
+        None => new_assumptions = assumptions
     }
-    match assume(solver, &new_assumptions) {
-        Ok(_) => {
-            // dbg!(model);
-            Ok(new_assumptions)
-        }
-        Err(e) => Err(e),
-    }
+    Ok(new_assumptions)
 }
 
 fn parse_type<'a>(
@@ -372,12 +360,11 @@ fn parse_specs<'a>(
     variables: &mut HashMap<String, Variable<'a>>,
     counter: &mut HashMap<String, i64>,
     solver: &z3::Solver,
-    assumptions: Vec<z3::ast::Bool<'a>>,
+    assumptions: Vec<Vec<z3::ast::Bool<'a>>>,
     specs: Vec<ast::Specification>,
     requires: bool,
 ) -> Result<z3::ast::Bool<'a>, Wrong> {
     let mut conditions = Vec::new();
-    let mut assumptions = assumptions;
     for spec in specs {
         match spec {
             ast::Specification::Ensures(e) => {
@@ -386,32 +373,24 @@ fn parse_specs<'a>(
                 }
                 let location = (e.span.start(), e.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), e) {
-                    Ok((value, _)) => match match value {
+                    Ok(value) => match match value {
                         Value::Bool(b) => Ok(z3::ast::Bool::from_bool(ctx, b)),
                         Value::Var(var) => match var {
                             Variable::Bool(b) => Ok(b),
                             _ => Err(Wrong {
-                                    msg: "Ensures with a value that has wrong type".to_string(),
-                                    span: location,
-                                })
-                        },
-                        _ => Err(Wrong {
                                 msg: "Ensures with a value that has wrong type".to_string(),
                                 span: location,
-                            })
+                            }),
+                        },
+                        _ => Err(Wrong {
+                            msg: "Ensures with a value that has wrong type".to_string(),
+                            span: location,
+                        }),
                     } {
                         Ok(ensure) => {
                             conditions.push(ensure.clone());
-                            solver.assert(&ensure);
-                            match add_assumption(
-                                &ctx,
-                                &solver,
-                                assumptions.clone(),
-                                Value::Var(Variable::Bool(ensure)),
-                            ) {
-                                Ok(a) => {
-                                    assumptions = a;
-                                }
+                            match assert(ctx, &solver, &assumptions, ensure) {
+                                Ok(_) => {}
                                 Err(e) => {
                                     return Err(Wrong {
                                         msg: e,
@@ -438,7 +417,7 @@ fn parse_specs<'a>(
                 }
                 let location = (r.span.start(), r.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), r) {
-                    Ok((value, _)) => match value {
+                    Ok(value) => match value {
                         Value::Bool(b) => conditions.push(z3::ast::Bool::from_bool(ctx, b)),
                         Value::Var(var) => match var {
                             Variable::Bool(b) => conditions.push(b),
@@ -485,10 +464,10 @@ fn parse_expr<'a>(
     counter: &mut HashMap<String, i64>,
     assgining_var: String,
     expr: ast::Expr,
-) -> Result<(Value<'a>, bool), String> {
+) -> Result<Value<'a>, String> {
     let kind = expr.kind;
     match parse_expr_kind(&ctx, variables, counter, assgining_var, kind) {
-        Ok((value, b)) => Ok((value, b)),
+        Ok(value) => Ok(value),
         Err(e) => Err(e),
     }
 }
@@ -499,53 +478,49 @@ fn parse_expr_kind<'a>(
     counter: &mut HashMap<String, i64>,
     assgining_var: String,
     expr_kind: Box<ast::ExprKind>,
-) -> Result<(Value<'a>, bool), String> {
+) -> Result<Value<'a>, String> {
     match *expr_kind {
-        ast::ExprKind::Boolean(b) => Ok((Value::Bool(b), false)),
-        ast::ExprKind::Integer(i) => Ok((Value::Int(i.parse().unwrap()), false)),
-        ast::ExprKind::Var(ident) => Ok((
+        ast::ExprKind::Boolean(b) => Ok(Value::Bool(b)),
+        ast::ExprKind::Integer(i) => Ok(Value::Int(i.parse().unwrap())),
+        ast::ExprKind::Var(ident) => Ok(
             Value::Var(
                 variables
                     .get(&(ident.text.clone() + &counter.get(&ident.text).unwrap().to_string()))
                     .unwrap()
                     .clone(),
-            ),
-            ident.text == assgining_var.clone(),
-        )),
+            )),
         // TODO: handle result and call
-        ast::ExprKind::Result => Ok((Value::Bool(true), false)),
+        ast::ExprKind::Result => Ok(Value::Bool(true)),
         ast::ExprKind::Call(ident, exprs) => {
             println!("Call: {}", ident.text);
             for expr in exprs {
                 let _ = parse_expr(&ctx, variables, counter, assgining_var.clone(), expr);
             }
-            Ok((
+            Ok(
                 Value::Var(
                     variables
                         .get(&(ident.text.clone() + &counter.get(&ident.text).unwrap().to_string()))
                         .unwrap()
                         .clone(),
-                ),
-                ident.text == assgining_var,
-            ))
+                ))
         }
         ast::ExprKind::Unary(uop, expr) => {
             match parse_expr(&ctx, variables, counter, assgining_var, expr) {
-                Ok((value, fresh)) => match uop {
+                Ok(value) => match uop {
                     ast::UOp::Minus => match value {
-                        Value::Int(i) => Ok((Value::Int(-i), fresh)),
+                        Value::Int(i) => Ok(Value::Int(-i)),
                         Value::Var(var) => match var {
                             Variable::Int(i) => {
-                                Ok((Value::Var(Variable::Int(i.unary_minus())), fresh))
+                                Ok(Value::Var(Variable::Int(i.unary_minus())))
                             }
                             _ => Err("UnaryOp - with a value that has wrong type".to_string()),
                         },
                         _ => Err("UnaryOp - with a value that has wrong type".to_string()),
                     },
                     ast::UOp::Not => match value {
-                        Value::Bool(i) => Ok((Value::Bool(!i), fresh)),
+                        Value::Bool(i) => Ok(Value::Bool(!i)),
                         Value::Var(var) => match var {
-                            Variable::Bool(i) => Ok((Value::Var(Variable::Bool(i.not())), fresh)),
+                            Variable::Bool(i) => Ok(Value::Var(Variable::Bool(i.not()))),
                             _ => Err("UnaryOp ! with a value that has wrong type".to_string()),
                         },
                         _ => Err("UnaryOp ! with a value that has wrong type".to_string()),
@@ -557,44 +532,39 @@ fn parse_expr_kind<'a>(
         ast::ExprKind::Binary(expr1, op, expr2) => {
             // Give some example for this you have in mind?
             match parse_expr(&ctx, variables, counter, assgining_var.clone(), expr1) {
-                Ok((value1, fresh1)) => {
+                Ok(value1) => {
                     match parse_expr(&ctx, variables, counter, assgining_var, expr2) {
-                        Ok((value2, fresh2)) => match op {
+                        Ok(value2) => match op {
                             ast::Op::And => match value1 {
                                 Value::Bool(var1) => match value2 {
                                     Value::Bool(var2) => {
-                                        Ok((Value::Bool(var1 && var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 && var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Bool(i) => Ok((
+                                        Variable::Bool(i) => Ok(
                                             Value::Var(Variable::Bool(z3::ast::Bool::and(
                                                 ctx,
                                                 &[&z3::ast::Bool::from_bool(ctx, var1), &i],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         _ => Err("&& with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("&& with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Bool(i) => match value2 {
-                                        Value::Bool(var2) => Ok((
+                                        Value::Bool(var2) => Ok(
                                             Value::Var(Variable::Bool(z3::ast::Bool::and(
                                                 ctx,
                                                 &[&i, &z3::ast::Bool::from_bool(ctx, var2)],
                                             ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Bool(i2) => Ok((
+                                                Variable::Bool(i2) => Ok(
                                                     Value::Var(Variable::Bool(z3::ast::Bool::and(
                                                         ctx,
                                                         &[&i, &i2],
-                                                    ))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                    )))),
                                                 _ => Err("&& with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -608,33 +578,27 @@ fn parse_expr_kind<'a>(
                             ast::Op::Divide => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Int(var1 / var2), fresh1 || fresh2))
+                                        Ok(Value::Int(var1 / var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Int(
                                                 z3::ast::Int::from_i64(ctx, var1).div(&i),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => Err("/ with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("/ with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Int(
                                                 i.div(&z3::ast::Int::from_i64(ctx, var2)),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
-                                                    Value::Var(Variable::Int(i.div(&i2))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Int(i2) => Ok(
+                                                    Value::Var(Variable::Int(i.div(&i2)))),
                                                 _ => Err("/ with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -648,48 +612,42 @@ fn parse_expr_kind<'a>(
                             ast::Op::Eq => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Bool(var1 == var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 == var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Int::from_i64(ctx, var1)._eq(&i),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => Err("== with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("== with a value that has wrong type".to_string()),
                                 },
                                 Value::Bool(var1) => match value2 {
                                     Value::Bool(var2) => {
-                                        Ok((Value::Bool(var1 == var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 == var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Bool(i) => Ok((
+                                        Variable::Bool(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Bool::from_bool(ctx, var1)._eq(&i),
                                             )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ),
                                         _ => Err("== with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("== with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i._eq(&z3::ast::Int::from_i64(ctx, var2)),
                                             )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
-                                                    Value::Var(Variable::Bool(i._eq(&i2))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Int(i2) => Ok(
+                                                    Value::Var(Variable::Bool(i._eq(&i2)))),
                                                 _ => Err("== with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -697,18 +655,14 @@ fn parse_expr_kind<'a>(
                                         _ => Err("== with a value that has wrong type".to_string()),
                                     },
                                     Variable::Bool(i) => match value2 {
-                                        Value::Bool(var2) => Ok((
+                                        Value::Bool(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i._eq(&z3::ast::Bool::from_bool(ctx, var2)),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Bool(i2) => Ok((
-                                                    Value::Var(Variable::Bool(i._eq(&i2))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Bool(i2) => Ok(
+                                                    Value::Var(Variable::Bool(i._eq(&i2)))),
                                                 _ => Err("== with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -722,33 +676,28 @@ fn parse_expr_kind<'a>(
                             ast::Op::Geq => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Bool(var1 >= var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 >= var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Int::from_i64(ctx, var1).ge(&i),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => Err(">= with a value that has wrong type".to_string()),
                                     },
                                     _ => Err(">= with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i.ge(&z3::ast::Int::from_i64(ctx, var2)),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )),),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
+                                                Variable::Int(i2) => Ok(
                                                     Value::Var(Variable::Bool(i.ge(&i2))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                    ),
                                                 _ => Err(">= with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -762,33 +711,27 @@ fn parse_expr_kind<'a>(
                             ast::Op::Gt => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Bool(var1 > var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 > var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Int::from_i64(ctx, var1).gt(&i),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => Err("> with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("> with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i.gt(&z3::ast::Int::from_i64(ctx, var2)),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
-                                                    Value::Var(Variable::Bool(i.gt(&i2))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Int(i2) => Ok(
+                                                    Value::Var(Variable::Bool(i.gt(&i2)))),
                                                 _ => Err("> with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -801,20 +744,16 @@ fn parse_expr_kind<'a>(
                             },
                             ast::Op::Implies => match value1 {
                                 Value::Bool(var1) => match value2 {
-                                    Value::Bool(var2) => Ok((
+                                    Value::Bool(var2) => Ok(
                                         Value::Var(Variable::Bool(
                                             z3::ast::Bool::from_bool(ctx, var1)
                                                 .implies(&z3::ast::Bool::from_bool(ctx, var2)),
-                                        )),
-                                        fresh1 || fresh2,
-                                    )),
+                                        ))),
                                     Value::Var(var2) => match var2 {
-                                        Variable::Bool(i) => Ok((
+                                        Variable::Bool(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Bool::from_bool(ctx, var1).implies(&i),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => {
                                             Err("==> with a value that has wrong type".to_string())
                                         }
@@ -823,18 +762,14 @@ fn parse_expr_kind<'a>(
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Bool(i) => match value2 {
-                                        Value::Bool(var2) => Ok((
+                                        Value::Bool(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i.implies(&z3::ast::Bool::from_bool(ctx, var2)),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Bool(i2) => Ok((
-                                                    Value::Var(Variable::Bool(i.implies(&i2))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Bool(i2) => Ok(
+                                                    Value::Var(Variable::Bool(i.implies(&i2)))),
                                                 _ => Err("==> with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -850,33 +785,27 @@ fn parse_expr_kind<'a>(
                             ast::Op::Leq => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Bool(var1 <= var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 <= var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Int::from_i64(ctx, var1).le(&i),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => Err("<= with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("<= with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i.le(&z3::ast::Int::from_i64(ctx, var2)),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
-                                                    Value::Var(Variable::Bool(i.le(&i2))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Int(i2) => Ok(
+                                                    Value::Var(Variable::Bool(i.le(&i2)))),
                                                 _ => Err("<= with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -890,33 +819,27 @@ fn parse_expr_kind<'a>(
                             ast::Op::Lt => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Bool(var1 < var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 < var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Int::from_i64(ctx, var1).lt(&i),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => Err("< with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("< with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i.lt(&z3::ast::Int::from_i64(ctx, var2)),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
-                                                    Value::Var(Variable::Bool(i.lt(&i2))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Int(i2) => Ok(
+                                                    Value::Var(Variable::Bool(i.lt(&i2)))),
                                                 _ => Err("< with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -930,38 +853,32 @@ fn parse_expr_kind<'a>(
                             ast::Op::Minus => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Int(var1 - var2), fresh1 || fresh2))
+                                        Ok(Value::Int(var1 - var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Int(z3::ast::Int::sub(
                                                 ctx,
                                                 &[&z3::ast::Int::from_i64(ctx, var1), &i],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         _ => Err("- with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("- with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Int(z3::ast::Int::sub(
                                                 ctx,
                                                 &[&i, &z3::ast::Int::from_i64(ctx, var2)],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
+                                                Variable::Int(i2) => Ok(
                                                     Value::Var(Variable::Int(z3::ast::Int::sub(
                                                         ctx,
                                                         &[&i, &i2],
-                                                    ))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                    )))),
                                                 _ => Err("- with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -975,48 +892,40 @@ fn parse_expr_kind<'a>(
                             ast::Op::Neq => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Bool(var1 != var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 != var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Int::from_i64(ctx, var1)._eq(&i).not(),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => Err("!= with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("!= with a value that has wrong type".to_string()),
                                 },
                                 Value::Bool(var1) => match value2 {
                                     Value::Bool(var2) => {
-                                        Ok((Value::Bool(var1 != var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 != var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Bool(i) => Ok((
+                                        Variable::Bool(i) => Ok(
                                             Value::Var(Variable::Bool(
                                                 z3::ast::Bool::from_bool(ctx, var1)._eq(&i).not(),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         _ => Err("!= with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("!= with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i._eq(&z3::ast::Int::from_i64(ctx, var2)).not(),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
-                                                    Value::Var(Variable::Bool(i._eq(&i2).not())),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Int(i2) => Ok(
+                                                    Value::Var(Variable::Bool(i._eq(&i2).not()))),
                                                 _ => Err("!= with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -1024,18 +933,14 @@ fn parse_expr_kind<'a>(
                                         _ => Err("!= with a value that has wrong type".to_string()),
                                     },
                                     Variable::Bool(i) => match value2 {
-                                        Value::Bool(var2) => Ok((
+                                        Value::Bool(var2) => Ok(
                                             Value::Var(Variable::Bool(
                                                 i._eq(&z3::ast::Bool::from_bool(ctx, var2)).not(),
-                                            )),
-                                            fresh1 || fresh2,
-                                        )),
+                                            ))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Bool(i2) => Ok((
-                                                    Value::Var(Variable::Bool(i._eq(&i2).not())),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                Variable::Bool(i2) => Ok(
+                                                    Value::Var(Variable::Bool(i._eq(&i2).not()))),
                                                 _ => Err("!= with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -1049,38 +954,32 @@ fn parse_expr_kind<'a>(
                             ast::Op::Or => match value1 {
                                 Value::Bool(var1) => match value2 {
                                     Value::Bool(var2) => {
-                                        Ok((Value::Bool(var1 || var2), fresh1 || fresh2))
+                                        Ok(Value::Bool(var1 || var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Bool(i) => Ok((
+                                        Variable::Bool(i) => Ok(
                                             Value::Var(Variable::Bool(z3::ast::Bool::or(
                                                 ctx,
                                                 &[&z3::ast::Bool::from_bool(ctx, var1), &i],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         _ => Err("|| with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("|| with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Bool(i) => match value2 {
-                                        Value::Bool(var2) => Ok((
+                                        Value::Bool(var2) => Ok(
                                             Value::Var(Variable::Bool(z3::ast::Bool::or(
                                                 ctx,
                                                 &[&i, &z3::ast::Bool::from_bool(ctx, var2)],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Bool(i2) => Ok((
+                                                Variable::Bool(i2) => Ok(
                                                     Value::Var(Variable::Bool(z3::ast::Bool::or(
                                                         ctx,
                                                         &[&i, &i2],
-                                                    ))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                    )))),
                                                 _ => Err("|| with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -1094,38 +993,32 @@ fn parse_expr_kind<'a>(
                             ast::Op::Plus => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Int(var1 + var2), fresh1 || fresh2))
+                                        Ok(Value::Int(var1 + var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Int(z3::ast::Int::add(
                                                 ctx,
                                                 &[&z3::ast::Int::from_i64(ctx, var1), &i],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         _ => Err("+ with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("+ with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Int(z3::ast::Int::add(
                                                 ctx,
                                                 &[&i, &z3::ast::Int::from_i64(ctx, var2)],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
+                                                Variable::Int(i2) => Ok(
                                                     Value::Var(Variable::Int(z3::ast::Int::add(
                                                         ctx,
                                                         &[&i, &i2],
-                                                    ))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                    )))),
                                                 _ => Err("+ with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -1139,38 +1032,32 @@ fn parse_expr_kind<'a>(
                             ast::Op::Times => match value1 {
                                 Value::Int(var1) => match value2 {
                                     Value::Int(var2) => {
-                                        Ok((Value::Int(var1 * var2), fresh1 || fresh2))
+                                        Ok(Value::Int(var1 * var2))
                                     }
                                     Value::Var(var2) => match var2 {
-                                        Variable::Int(i) => Ok((
+                                        Variable::Int(i) => Ok(
                                             Value::Var(Variable::Int(z3::ast::Int::mul(
                                                 ctx,
                                                 &[&z3::ast::Int::from_i64(ctx, var1), &i],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         _ => Err("* with a value that has wrong type".to_string()),
                                     },
                                     _ => Err("* with a value that has wrong type".to_string()),
                                 },
                                 Value::Var(var) => match var {
                                     Variable::Int(i) => match value2 {
-                                        Value::Int(var2) => Ok((
+                                        Value::Int(var2) => Ok(
                                             Value::Var(Variable::Int(z3::ast::Int::mul(
                                                 ctx,
                                                 &[&i, &z3::ast::Int::from_i64(ctx, var2)],
-                                            ))),
-                                            fresh1 || fresh2,
-                                        )),
+                                            )))),
                                         Value::Var(var2) => {
                                             match var2 {
-                                                Variable::Int(i2) => Ok((
+                                                Variable::Int(i2) => Ok(
                                                     Value::Var(Variable::Int(z3::ast::Int::mul(
                                                         ctx,
                                                         &[&i, &i2],
-                                                    ))),
-                                                    fresh1 || fresh2,
-                                                )),
+                                                    )))),
                                                 _ => Err("* with a value that has wrong type"
                                                     .to_string()),
                                             }
@@ -1193,7 +1080,7 @@ fn parse_expr_kind<'a>(
             println!("Var: {}", name.text);
             parse_type(&ctx, variables, counter, name.text.clone(), ty);
             match parse_expr(&ctx, variables, counter, assgining_var, expr) {
-                Ok((value, fresh)) => {
+                Ok(value) => {
                     let body = match value {
                         Value::Bool(b) => z3::ast::Bool::from_bool(ctx, b),
                         Value::Var(var) => match var {
@@ -1220,24 +1107,20 @@ fn parse_expr_kind<'a>(
                                 .unwrap()
                                 .clone()
                             {
-                                Variable::Bool(bound) => Ok((
+                                Variable::Bool(bound) => Ok(
                                     Value::Var(Variable::Bool(z3::ast::forall_const(
                                         ctx,
                                         &[&bound],
                                         &[],
                                         &body,
-                                    ))),
-                                    fresh,
-                                )),
-                                Variable::Int(bound) => Ok((
+                                    )))),
+                                Variable::Int(bound) => Ok(
                                     Value::Var(Variable::Bool(z3::ast::forall_const(
                                         ctx,
                                         &[&bound],
                                         &[],
                                         &body,
-                                    ))),
-                                    fresh,
-                                )),
+                                    )))),
                             }
                         }
                         ast::Quantifier::Exists => {
@@ -1249,24 +1132,20 @@ fn parse_expr_kind<'a>(
                                 .unwrap()
                                 .clone()
                             {
-                                Variable::Bool(bound) => Ok((
+                                Variable::Bool(bound) => Ok(
                                     Value::Var(Variable::Bool(z3::ast::exists_const(
                                         ctx,
                                         &[&bound],
                                         &[],
                                         &body,
-                                    ))),
-                                    fresh,
-                                )),
-                                Variable::Int(bound) => Ok((
+                                    )))),
+                                Variable::Int(bound) => Ok(
                                     Value::Var(Variable::Bool(z3::ast::exists_const(
                                         ctx,
                                         &[&bound],
                                         &[],
                                         &body,
-                                    ))),
-                                    fresh,
-                                )),
+                                    )))),
                             }
                         }
                     }
@@ -1283,9 +1162,9 @@ fn parse_body<'a>(
     variables: &mut HashMap<String, Variable<'a>>,
     counter: &mut HashMap<String, i64>,
     solver: &z3::Solver,
-    assumptions: Vec<z3::ast::Bool<'a>>,
+    assumptions: Vec<Vec<z3::ast::Bool<'a>>>,
     body: ast::Body,
-) -> Result<Vec<z3::ast::Bool<'a>>, Wrong> {
+) -> Result<Vec<Vec<z3::ast::Bool<'a>>>, Wrong> {
     let mut assumptions = assumptions;
     for stmt in body.statements {
         let location: (usize, usize);
@@ -1295,7 +1174,7 @@ fn parse_body<'a>(
                 parse_type(&ctx, variables, counter, name.text.clone(), ty);
                 match expr {
                     Some(expr) => {
-                        parse_assignment(ctx, variables, counter, solver, assumptions, name, expr)
+                        parse_assignment(ctx, variables, counter, assumptions, name, expr)
                     }
                     None => Ok(assumptions),
                 }
@@ -1303,31 +1182,31 @@ fn parse_body<'a>(
             ast::Statement::Assert(expr) => {
                 location = (expr.span.start(), expr.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), expr) {
-                    Ok((value, _)) => match value.clone() {
+                    Ok(value) => match value.clone() {
                         Value::Bool(b) => {
-                            solver.assert(&z3::ast::Bool::from_bool(ctx, b));
-                            match add_assumption(ctx, solver, assumptions, value.clone()) {
-                                Ok(a) => Ok(a),
+                            match assert(ctx, &solver, &assumptions, z3::ast::Bool::from_bool(ctx, b)) {
+                                Ok(_) => {}
                                 Err(e) => {
                                     return Err(Wrong {
                                         msg: e,
                                         span: location,
                                     })
                                 }
-                            }
+                            };
+                            Ok(assumptions)
                         }
                         Value::Var(var) => match var {
                             Variable::Bool(b) => {
-                                solver.assert(&b);
-                                match add_assumption(ctx, solver, assumptions, value) {
-                                    Ok(a) => Ok(a),
+                                match assert(ctx, &solver, &assumptions, b) {
+                                    Ok(_) => {}
                                     Err(e) => {
                                         return Err(Wrong {
                                             msg: e,
                                             span: location,
                                         })
                                     }
-                                }
+                                };
+                                Ok(assumptions)
                             }
                             _ => {
                                 return Err(Wrong {
@@ -1354,10 +1233,9 @@ fn parse_body<'a>(
             ast::Statement::Assume(expr) => {
                 location = (expr.span.start(), expr.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), expr) {
-                    Ok((value, _)) => match value.clone() {
+                    Ok(value) => match value.clone() {
                         Value::Bool(b) => match add_assumption(
                             ctx,
-                            solver,
                             assumptions.clone(),
                             Value::Var(Variable::Bool(z3::ast::Bool::from_bool(ctx, b))),
                         ) {
@@ -1371,7 +1249,7 @@ fn parse_body<'a>(
                         },
                         Value::Var(var) => match var {
                             Variable::Bool(_) => {
-                                match add_assumption(ctx, solver, assumptions.clone(), value) {
+                                match add_assumption(ctx, assumptions.clone(), value) {
                                     Ok(a) => Ok(a),
                                     Err(e) => {
                                         return Err(Wrong {
@@ -1404,7 +1282,7 @@ fn parse_body<'a>(
                 }
             }
             ast::Statement::Assignment(ident, expr) => {
-                parse_assignment(ctx, variables, counter, solver, assumptions, ident, expr)
+                parse_assignment(ctx, variables, counter, assumptions, ident, expr)
             }
             ast::Statement::MethodAssignment(idents, ident, exprs) => {
                 // TODO: Support method assignment
@@ -1429,10 +1307,10 @@ fn parse_body<'a>(
             ast::Statement::If(expr, body, body_opt) => {
                 location = (expr.span.start(), expr.span.end());
                 match parse_expr(&ctx, variables, counter, "".to_string(), expr) {
-                    Ok((value, _)) => {
+                    Ok(value) => {
                         let mut if_branch_counter = counter.clone();
                         let mut assumptions_if =
-                            match add_assumption(ctx, solver, assumptions.clone(), value.clone()) {
+                            match add_assumption(ctx, assumptions.clone(), value.clone()) {
                                 Ok(if_ass) => {
                                     match parse_body(
                                         &ctx,
@@ -1475,7 +1353,7 @@ fn parse_body<'a>(
                                     }),
                                 } {
                                     Ok(else_ass) => {
-                                        match add_assumption(ctx, solver, assumptions, else_ass) {
+                                        match add_assumption(ctx, assumptions, else_ass) {
                                             Ok(else_assumptions) => {
                                                 match parse_body(
                                                     &ctx,
@@ -1509,7 +1387,6 @@ fn parse_body<'a>(
                                                             if if_branch > else_branch {
                                                                 final_ass = match add_assumption(
                                                                 ctx,
-                                                                solver,
                                                                 final_ass,
                                                                 match if_branch_var {
                                                                     Variable::Bool(var1) => match else_branch_var {
@@ -1538,7 +1415,6 @@ fn parse_body<'a>(
                                                                 num = else_branch.clone();
                                                                 assumptions_if = match add_assumption(
                                                                     ctx,
-                                                                    solver,
                                                                     assumptions_if,
                                                                     match else_branch_var {
                                                                         Variable::Bool(var1) => match if_branch_var {
@@ -1634,37 +1510,32 @@ fn parse_assignment<'a>(
     ctx: &'a z3::Context,
     variables: &mut HashMap<String, Variable<'a>>,
     counter: &mut HashMap<String, i64>,
-    solver: &z3::Solver,
-    assumptions: Vec<z3::ast::Bool<'a>>,
+    assumptions: Vec<Vec<z3::ast::Bool<'a>>>,
     ident: ast::Ident,
     expr: ast::Expr,
-) -> Result<Vec<z3::ast::Bool<'a>>, Wrong> {
+) -> Result<Vec<Vec<z3::ast::Bool<'a>>>, Wrong> {
     let location: (usize, usize) = (expr.span.start(), expr.span.end());
     match variables
         .clone()
         .get(&(ident.text.clone() + &counter.get(&ident.text.clone()).unwrap().to_string()))
         .unwrap()
     {
-        Variable::Bool(assigned) => {
+        Variable::Bool(_) => {
             match parse_expr(&ctx, variables, counter, ident.text.clone(), expr) {
-                Ok((value, fresh)) => {
-                    let mut assigned = assigned.clone();
-                    if fresh {
-                        assigned = match fresh_variable(ctx, variables, counter, ident.text) {
-                            Variable::Bool(b) => b,
-                            _ => {
-                                return Err(Wrong {
-                                    msg: "Assignment with a fresh value that has wrong type"
-                                        .to_string(),
-                                    span: location,
-                                })
-                            }
+                Ok(value) => {
+                    let assigned = match fresh_variable(ctx, variables, counter, ident.text) {
+                        Variable::Bool(b) => b,
+                        _ => {
+                            return Err(Wrong {
+                                msg: "Assignment with a fresh value that has wrong type"
+                                    .to_string(),
+                                span: location,
+                            })
                         }
-                    }
+                    };
                     match value {
                         Value::Bool(b) => match add_assumption(
                             ctx,
-                            solver,
                             assumptions.clone(),
                             Value::Var(Variable::Bool(
                                 assigned._eq(&z3::ast::Bool::from_bool(ctx, b)),
@@ -1681,7 +1552,6 @@ fn parse_assignment<'a>(
                         Value::Var(var) => match var {
                             Variable::Bool(b) => match add_assumption(
                                 ctx,
-                                solver,
                                 assumptions.clone(),
                                 Value::Var(Variable::Bool(assigned._eq(&b))),
                             ) {
@@ -1716,26 +1586,22 @@ fn parse_assignment<'a>(
                 }
             }
         }
-        Variable::Int(assigned) => {
+        Variable::Int(_) => {
             match parse_expr(&ctx, variables, counter, ident.text.clone(), expr) {
-                Ok((value, fresh)) => {
-                    let mut assigned = assigned.clone();
-                    if fresh {
-                        assigned = match fresh_variable(ctx, variables, counter, ident.text) {
-                            Variable::Int(i) => i,
-                            _ => {
-                                return Err(Wrong {
-                                    msg: "Assignment with a fresh value that has wrong type"
-                                        .to_string(),
-                                    span: location,
-                                })
-                            }
+                Ok(value) => {
+                    let assigned = match fresh_variable(ctx, variables, counter, ident.text) {
+                        Variable::Int(i) => i,
+                        _ => {
+                            return Err(Wrong {
+                                msg: "Assignment with a fresh value that has wrong type"
+                                    .to_string(),
+                                span: location,
+                            })
                         }
-                    }
+                    };
                     match value {
                         Value::Int(b) => match add_assumption(
                             ctx,
-                            solver,
                             assumptions.clone(),
                             Value::Var(Variable::Bool(
                                 assigned._eq(&z3::ast::Int::from_i64(ctx, b)),
@@ -1752,7 +1618,6 @@ fn parse_assignment<'a>(
                         Value::Var(var) => match var {
                             Variable::Int(b) => match add_assumption(
                                 ctx,
-                                solver,
                                 assumptions.clone(),
                                 Value::Var(Variable::Bool(assigned._eq(&b))),
                             ) {
