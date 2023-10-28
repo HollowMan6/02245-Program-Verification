@@ -1,0 +1,15 @@
+method client(){
+	var z: Int
+	z := triple(7) + 3
+	assert z == 25
+}
+
+function triple(x: Int): Int
+    requires x > 0
+    requires self(x) > 0
+	ensures x > 0
+    ensures self(x) > 0
+{ 3 * x + 1 }
+
+function self(x: Int): Int
+{ x }

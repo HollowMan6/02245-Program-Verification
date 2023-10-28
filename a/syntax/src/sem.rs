@@ -249,33 +249,33 @@ impl<'a> AnalysisContext<'a> {
                 }
                 self.local_decls
                     .insert(var.name.clone(), Deceleration::Var(var.clone()));
-                if let Some(init) = initializer {
-                    let init_ty = self.analyze_expr(Location::Expr, init)?;
-                    init_ty.expect_ty(init.span, var.ty)?;
-                }
-                Ok(Statement::Var(var.clone(), initializer.clone()))
+                let init_ty = if let Some(init) = initializer {
+                    Some(self.analyze_expr(Location::Expr, init)?
+                        .expect_ty(init.span, var.ty)?)
+                } else {
+                    None
+                };
+                Ok(Statement::Var(var.clone(), init_ty.clone()))
             }
             Statement::Assert(pred) => {
-                let ty = self.analyze_expr(
+                let pred_ty = self.analyze_expr(
                     Location::Pred {
                         fun_ret: None,
                         in_pre: false,
                     },
                     pred,
-                )?;
-                ty.expect_ty(pred.span, Type::Bool)?;
-                Ok(Statement::Assert(pred.clone()))
+                )?.expect_ty(pred.span, Type::Bool)?;
+                Ok(Statement::Assert(pred_ty.clone()))
             }
             Statement::Assume(pred) => {
-                let ty = self.analyze_expr(
+                let pred_ty = self.analyze_expr(
                     Location::Pred {
                         fun_ret: None,
                         in_pre: false,
                     },
                     pred,
-                )?;
-                ty.expect_ty(pred.span, Type::Bool)?;
-                Ok(Statement::Assume(pred.clone()))
+                )?.expect_ty(pred.span, Type::Bool)?;
+                Ok(Statement::Assume(pred_ty.clone()))
             }
             Statement::Assignment(var, expr) => {
                 let decl = match self.lookup(var) {
@@ -298,10 +298,11 @@ impl<'a> AnalysisContext<'a> {
                     None => bail!(AssignmentToUndeclared { var: var.clone() }),
                 };
 
-                self.analyze_expr(Location::Expr, expr)?
+                let expr_ty = self
+                    .analyze_expr(Location::Expr, expr)?
                     .expect_ty(expr.span, decl.ty)?;
 
-                Ok(Statement::Assignment(var.clone(), expr.with_ty(decl.ty)))
+                Ok(Statement::Assignment(var.clone(), expr_ty.clone()))
             }
             Statement::MethodAssignment(vars, name, args) => {
                 let m = if let Some(m) = self.lookup(name) {
@@ -378,40 +379,44 @@ impl<'a> AnalysisContext<'a> {
                     }
                 );
 
-                for (arg, input) in args.iter().zip(&m.inputs.clone()) {
-                    self.analyze_expr(Location::Expr, arg)?
-                        .expect_ty(arg.span, input.ty)?;
-                }
+                let args_ty = args.iter().zip(&m.inputs.clone()) .map(|(arg, input)| {
+                    Ok(self.analyze_expr(Location::Expr, arg)?
+                        .expect_ty(arg.span, input.ty)?)
+                }).collect::<miette::Result<Vec<Expr>>>()?;
 
                 Ok(Statement::MethodAssignment(
                     vars.clone(),
                     name.clone(),
-                    args.clone(),
+                    args_ty.clone(),
                 ))
             }
             Statement::If(cond, then, else_) => {
-                let cond_ty = self.analyze_expr(Location::Expr, cond)?;
-                cond_ty.expect_ty(cond.span, Type::Bool)?;
+                let cond_ty = self.analyze_expr(Location::Expr, cond)?
+                    .expect_ty(cond.span, Type::Bool)?;
 
-                let then = self.analyze_body(then)?;
+                let then_ty = self.analyze_body(then)?;
 
-                let else_ = if let Some(else_) = else_.as_ref() {
+                let else_ty = if let Some(else_) = else_.as_ref() {
                     Some(self.analyze_body(else_)?)
                 } else {
                     None
                 };
 
-                Ok(Statement::If(cond.clone(), then, else_))
+                Ok(Statement::If(
+                    cond_ty.clone(), 
+                    then_ty.clone(), 
+                    else_ty.clone()
+                ))
             }
             Statement::While {
                 condition,
                 invariants,
                 body,
             } => {
-                let cond_ty = self.analyze_expr(Location::Expr, condition)?;
-                cond_ty.expect_ty(condition.span, Type::Bool)?;
+                let cond_ty = self.analyze_expr(Location::Expr, condition)?
+                    .expect_ty(condition.span, Type::Bool)?;
 
-                for inv in invariants {
+                let inv_ty = invariants.iter().map(|inv| {
                     self.analyze_expr(
                         Location::Pred {
                             fun_ret: None,
@@ -419,15 +424,15 @@ impl<'a> AnalysisContext<'a> {
                         },
                         inv,
                     )?
-                    .expect_ty(inv.span, Type::Bool)?;
-                }
+                    .expect_ty(inv.span, Type::Bool)
+                }).collect::<miette::Result<Vec<Expr>>>()?;
 
-                let body = self.analyze_body(body)?;
+                let body_ty = self.analyze_body(body)?;
 
                 Ok(Statement::While {
-                    condition: condition.clone(),
-                    invariants: invariants.clone(),
-                    body,
+                    condition: cond_ty.clone(),
+                    invariants: inv_ty.clone(),
+                    body: body_ty.clone(),
                 })
             }
         }
@@ -860,5 +865,5 @@ mod tests {
     sem_err!(
         assume_integer, 
         "method test() { assume 3 }"
-    );
+);
 }

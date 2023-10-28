@@ -18,7 +18,7 @@ method wrong(x: Int) returns (y: Int)
         y := 6
     } else {
         y := x
-        assert false
+        assert y > 9
         y := y + 1
     }
 }

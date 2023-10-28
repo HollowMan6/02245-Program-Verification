@@ -1,0 +1,5 @@
+method bool_fail(n: Int) returns (res: Int)
+{
+  var b: Bool := true
+  assert b
+}

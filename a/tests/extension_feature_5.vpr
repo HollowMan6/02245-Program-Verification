@@ -1,0 +1,33 @@
+method wrong1(x: Int) returns (y: Int)
+{
+  if (x < 1) {
+	y := 42
+  } else {
+	y := 17
+  }
+  y := wrong1(x)
+  y := 2 * x + 1
+}
+
+method wrong2(x: Int) returns (y: Int)
+{
+  if (x < 1) {
+	y := 1
+	y := wrong2(y)
+  } else {
+	y := 12
+	y := wrong2(x)
+  }
+  y := 2 * x + 1
+}
+
+method ok(x: Int) returns (y: Int)
+{
+  if (x < 1) {
+	y := 1
+  } else {
+	y := 12
+	y := wrong2(x)
+  }
+  y := 2 * x + 1
+}

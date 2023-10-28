@@ -1,0 +1,26 @@
+method foo(x: Int) returns (y: Int)
+    requires x > 0
+    ensures y > x
+{
+    assume x == 5
+    if (x == 5) {
+        y := 6
+    } else {
+        y := x
+        y := y + 1
+    }
+}
+
+method foo1(x: Int) returns (y: Int)
+    requires x > 0
+    requires x < 0
+    ensures y > x
+{
+    assume x == 5
+    if (x == 5) {
+        y := 6
+    } else {
+        y := x
+        y := y + 1
+    }
+}
