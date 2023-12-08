@@ -1,0 +1,25 @@
+/*
+ * Which assertions should we report as failing?
+ * Try out with silicon and carbon.
+ */
+method main()
+{
+    var star: Bool 
+    var x: Int
+
+    // -------------
+
+    assume true 
+
+    if (star) {
+        assume x < 17
+        assert x < 26
+    } else {
+        assume x >= 17
+        assert x > 42
+        assert x != 16
+    }
+
+    assert true
+
+}

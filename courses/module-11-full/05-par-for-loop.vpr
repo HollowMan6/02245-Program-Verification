@@ -1,0 +1,23 @@
+import "ArrayPrelude.vpr"
+
+// ----------------------------------------------------------------------------------------------------------------------
+
+method body(i: Int, a: Array)
+    requires acc(loc(a,i).val)
+    ensures  acc(loc(a,i).val)
+    ensures  lookup(a, i) == old(lookup(a, i)) + 1
+{
+    update(a, i, lookup(a, i)+ 1) 
+}
+
+method parallelFor(a: Array)
+    requires array(a)
+    ensures  array(a)
+    ensures  forall j: Int :: 0 <= j && j < len(a) ==> lookup(a, j) == old(lookup(a, j)) + 1
+{
+    label l
+    exhale forall i: Int :: 0 <= i && i < len(a) ==> acc(loc(a,i).val)
+    inhale forall i: Int :: 0 <= i && i < len(a) ==> acc(loc(a,i).val)
+    inhale forall i: Int :: 0 <= i && i < len(a) ==> lookup(a, i) == old[l](lookup(a, i)) + 1
+}
+

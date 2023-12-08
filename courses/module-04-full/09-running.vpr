@@ -1,0 +1,16 @@
+// This is the same example as before but now we make it fail by 
+// changing the postcondition to z == 3 * x, which does not hold
+// if we take the second branch, i.e. if x >= y.
+method triple_min(x: Int, y: Int) returns (z: Int)
+    requires x >= 0 && y >= 0 
+    ensures z == 3 * x
+{
+    z := x - y
+    if (z < 0) {
+        z := z + y 
+        z := z + 2 * x
+    } else {
+        z := z - x
+        z := z + 4 * y
+    }
+}

@@ -1,0 +1,50 @@
+domain MultiSet[T] {
+
+  function empty(): MultiSet[T]
+  function singleton(value: T): MultiSet[T]
+  function add(M: MultiSet[T], N: MultiSet[T]): MultiSet[T]
+  function count(M: MultiSet[T], elem: T): Int
+  function card(M: MultiSet[T]): Int
+ 
+  // TODO: add axioms
+}
+
+method client1()
+{
+    var M: MultiSet[Int] := singleton(17)
+    M := add(M,M)
+
+    assert count(M, 17) == 2
+    assert count(M, 23) == 0
+}
+
+method client2()
+{
+    var M: MultiSet[Int] := singleton(17)
+    M := add(M,M)
+
+    var N: MultiSet[Int] := add(singleton(17), singleton(17))
+
+    assert M == N
+}
+
+method client3()
+{
+    var M: MultiSet[Int] := add(singleton(17), singleton(23))
+
+    var N: MultiSet[Int] := add(singleton(17), add(empty(), singleton(23)))
+
+    assert card(M) == card(N)
+}
+
+method client4()
+{
+    var M: MultiSet[Int] := add(singleton(17), singleton(23))
+
+    var N: MultiSet[Int] := add(singleton(17), add(empty(), singleton(23)))
+
+    assert count(M, 17) == count(N, 17)
+    assert count(M, 23) == count(N, 23)
+
+    assert M == N
+}

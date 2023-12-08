@@ -1,0 +1,150 @@
+domain X {
+
+    function mirror(t: Tree): Tree
+    function size(t: Tree): Int
+
+    axiom {
+        forall t: Tree :: mirror(t) == (
+            is_leaf(t) ? t : node(mirror(right(t)), mirror(left(t)))
+        )
+    }
+
+    axiom {
+        forall t: Tree :: size(t) == (
+            is_leaf(t) ? 1 : size(left(t)) + size(right(t))
+        )
+    }
+
+    axiom {
+        forall t: Tree :: size(t) >= 1
+    }
+
+    // used to check axioms
+    function size2(t: Tree): Int
+    axiom {
+        forall t: Tree :: size2(t) == (
+            is_leaf(t) ? 1 : size2(left(t)) + size2(right(t))
+        )
+    }
+}
+
+// verify that our additional axiom is correct
+method lemma_size2_positive(t:Tree)
+    ensures size2(t) >= 1
+    // decreases t 
+    // well-founded ordering: t1 < t2 if t1 is a child of t2
+    // i.e. t1 == left(t2) or t1 == right(t2)
+    // this is clearly well-founded because every decreasing chain is
+    // at most as long as the longest path in any given finite tree.
+{
+    if (!is_leaf(t)) {
+        var l: Tree := left(t)
+        var r: Tree := right(t) 
+
+        assert l == left(t) || l == right(t) // variant check
+        lemma_size2_positive(l)
+
+        assert r == left(t) || r == right(t) // variant check
+        lemma_size2_positive(r)
+    }
+}
+
+method mirror_mirror() {
+    var t: Tree
+
+    lemma_mirror_mirror(t)
+    
+    assert mirror(mirror(t)) == t
+}
+
+method mirror_size() {
+    var t: Tree
+    lemma_mirror_size(t)
+    assert size(mirror(t)) == size(t)
+}
+
+method lemma_mirror_mirror(t: Tree)
+    ensures mirror(mirror(t)) == t
+    //decreases size(t)
+{
+    // we do structural induction here;
+    // terminates since we only invoke the induction
+    // hypothesis on subtrees.
+    var v: Int := size(t); assert v >= 0
+
+    if (is_leaf(t)) {
+        // induction base: trivial
+    } else {
+        // apply induction hypothesis twice
+        assert size(left(t)) < v
+        lemma_mirror_mirror(left(t))
+
+        assert size(right(t)) < v
+        lemma_mirror_mirror(right(t))
+    }
+}
+
+
+
+method lemma_mirror_size(t: Tree) 
+    ensures size(mirror(t)) == size(t)
+    //decreases size(t)
+{
+    var v: Int := size(t); assert v >= 0
+    if (is_leaf(t)) {
+        // induction base
+    } else {
+        // apply induction hypothesis twice
+        assert size(left(t)) < v
+        lemma_mirror_size(left(t))
+
+        assert size(right(t)) < v
+        lemma_mirror_size(right(t))
+    }
+}
+
+// no changes below
+domain Tree { 
+    
+    // constructors
+    function leaf(value: Int): Tree // <-- base case
+    function node(left: Tree, right: Tree): Tree // composite case
+
+    // discriminators (is_node is implicit via !is_leaf(t))
+    function is_leaf(t: Tree): Bool 
+
+    // destructors
+    function value(t: Tree): Int 
+    function left(t: Tree): Tree
+    function right(t: Tree): Tree
+
+    // axioms
+    axiom def_is_leaf {
+        forall x: Int :: is_leaf(leaf(x)) 
+    }
+
+    axiom def_not_is_leaf {
+        forall l: Tree, r: Tree :: !is_leaf(node(l,r))
+    }
+
+    axiom all_variants {
+        forall t: Tree ::
+            (is_leaf(t) && exists x: Int :: t == leaf(x))
+            || (!is_leaf(t) && exists l: Tree, r: Tree :: t == node(l, r))
+    }
+
+    axiom value_over_leaf {
+        forall x: Int :: value(leaf(x)) == x
+    }
+
+    axiom left_over_node {
+        forall l: Tree, r: Tree ::
+            left(node(l, r)) == l
+    }
+
+    axiom right_over_node {
+        forall l: Tree, r: Tree ::
+            right(node(l, r)) == r
+    }
+}
+

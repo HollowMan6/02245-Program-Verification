@@ -1,0 +1,11 @@
+method isqrt(x: Int) returns (r: Int)
+    requires x >= 0
+    ensures x >= r * r
+    ensures x < (r+1) * (r+1)
+
+method client()
+{
+  var i: Int
+  i := isqrt(25)
+  assert i == 5
+}

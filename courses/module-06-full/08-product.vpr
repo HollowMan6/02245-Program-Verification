@@ -1,0 +1,23 @@
+method multiply(n: Int, m: Int) 
+    returns (res: Int)
+    requires n >= 0 && m >= 0
+    ensures res == n * m
+{
+
+    var x: Int := n 
+    var y: Int := m
+    res := 0 
+
+    while (x > 0)
+        invariant x >= 0 // cannot establish post without
+        invariant res + x * y == n * m
+    {
+        if (x % 2 == 1) {
+            res := res + y
+        }
+
+        x := x / 2
+        y := y * 2
+    }
+}
+

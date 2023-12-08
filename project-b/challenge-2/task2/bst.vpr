@@ -1,0 +1,102 @@
+predicate time_credit()
+method consume_time_credit()
+    requires time_credit()
+
+// PART 1: Binary search tree predicate
+//
+// Define a predicate for a binary search tree. You may define new fields and
+// additional predicates. You may add arguments or heap-based functions for
+// abstraction.
+
+
+field max: Int
+field min: Int
+field key: Int
+field left: Ref
+field right: Ref
+
+predicate bst(tree: Ref) {
+    acc(tree.left) && 
+    acc(tree.right) && 
+    acc(tree.key) &&
+    acc(tree.max) &&
+    acc(tree.min) &&
+    (tree.min <= tree.key <= tree.max)
+    &&
+    (tree.left != null ==> bst(tree.left) && (unfolding bst(tree.left) in tree.key > tree.left.key) && (unfolding bst(tree.left) in tree.min == tree.left.min))
+    &&
+    (tree.right != null ==> bst(tree.right) && (unfolding bst(tree.right) in tree.key < tree.right.key) &&  (unfolding bst(tree.right) in tree.max == tree.right.max))
+    &&
+    (tree.left == null ==> tree.min == tree.key)
+    &&
+    (tree.right == null ==> tree.max == tree.key)
+}
+
+define depth(t) (
+    t == null ? 0 : 1 + height(t)
+)
+
+// this heap based function is used to calculate height of tree.
+function height(root: Ref) : Int
+    requires root != null ==> bst(root)
+    ensures result >= 0
+{
+  root == null ? 0 : (unfolding bst(root) in (depth(root.left) > depth(root.right))? depth(root.left) : depth(root.right))
+}
+
+// PART 2: BST insertion method
+//
+// Use the bst predicate you defined to implement a method which inserts a
+// value into the given tree.
+
+method bst_new(val: Int) returns (root: Ref)
+  ensures bst(root)
+  ensures unfolding bst(root) in root.key == val
+  ensures unfolding bst(root) in root.max == val
+  ensures unfolding bst(root) in root.min == val
+{
+  root := new(*)
+  root.key := val
+  root.left := null
+  root.right := null
+  root.max := val
+  root.min := val
+  fold bst(root)
+}
+
+method bst_insert(root: Ref, val: Int)
+  requires root != null
+  requires bst(root)
+  requires acc(time_credit(), (1 + height(root))/1)
+  ensures bst(root)
+  ensures unfolding bst(root) in root.min <= val
+  ensures unfolding bst(root) in root.max >= val
+  ensures unfolding bst(root) in root.max >= old(unfolding bst(root) in root.max)
+  ensures unfolding bst(root) in root.min <= old(unfolding bst(root) in root.min)
+  ensures unfolding bst(root) in root.key == old(unfolding bst(root) in root.key)
+{
+  consume_time_credit()
+
+  unfold bst(root)
+  if (val < root.key) {
+      if (root.left == null) {
+        root.left := bst_new(val)
+        root.min := val
+      } else {
+        bst_insert(root.left, val)
+        root.min := unfolding bst(root.left) in root.left.min
+      }
+      
+  } else {
+    if (val > root.key) {
+      if (root.right == null) {
+        root.right := bst_new(val)
+        root.max := val
+      } else {
+        bst_insert(root.right, val)
+        root.max := unfolding bst(root.right) in root.right.max
+      }
+    }
+  }
+  fold bst(root)
+}

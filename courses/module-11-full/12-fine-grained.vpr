@@ -1,0 +1,66 @@
+field isLock: Bool
+
+// class List
+field head: Ref
+
+define InvList(this) (
+    acc(this.head) &&
+    (this.head != null ==> acc(this.head.isLock, wildcard))
+)
+
+define shareList(this) {
+    exhale InvList(this)
+    inhale acc(this.isLock, wildcard)
+}
+
+define acquireList(this) {
+    assert acc(this.isLock, wildcard)
+    inhale InvList(this)
+}
+
+define releaseList(this) {
+    exhale InvList(this)
+}
+
+
+// class Node
+field next: Ref
+field elem: Int
+
+define InvNode(this) (
+    acc(this.elem) && acc(this.next) &&
+    (this.next != null ==> acc(this.next.isLock, wildcard))
+)
+
+define shareNode(this) {
+    exhale InvNode(this)
+    inhale acc(this.isLock, wildcard)
+}
+
+define acquireNode(this) {
+    assert acc(this.isLock, wildcard)
+    inhale InvNode(this)
+}
+
+define releaseNode(this) {
+    exhale InvNode(this)
+}
+
+// ----------------------------------------------------------------------------------------------------------------------
+
+method incAll(this: Ref)
+    requires acc(this.isLock, wildcard)
+{
+    acquireList(this)
+    var curr: Ref := this.head
+    releaseList(this)
+    while(curr != null) 
+        invariant curr != null ==> acc(curr.isLock, wildcard)
+    {
+        acquireNode(curr)
+        curr.elem := curr.elem + 1
+        var n: Ref := curr.next
+        releaseNode(curr)
+        curr := n
+    }
+}

@@ -1,0 +1,33 @@
+method framing() {
+  var x: Int 
+
+  x := 0
+
+  while (false) 
+    invariant true
+  {}
+
+  assert x == 0
+}
+
+
+/*
+
+method naive_encoding() {
+
+  var x :Int := 0
+  
+  assert true 
+  var y: Int; x := y // havoc the full state instead of only modified variables
+
+  assume true && !false
+
+  assert x == 0 // fails
+}
+*/
+
+
+
+
+
+

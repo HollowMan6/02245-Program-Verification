@@ -1,0 +1,28 @@
+domain X {
+  function exp2(n: Int): Int
+
+  axiom {
+    forall n: Int :: n > 0 ==> exp2(n) == 2 * exp2(n-1)
+  }
+
+  axiom {
+    exp2(0) == 1
+  }
+}
+
+
+method power(n: Int) returns (r: Int)
+  requires n >= 0
+  ensures r == exp2(n)
+{
+  r := 1
+  var i: Int := 0
+
+  while (i != n)
+    invariant 0 <= i <= n 
+    invariant r == exp2(i)
+  {
+    // TODO
+    i := i + 1
+  }
+}

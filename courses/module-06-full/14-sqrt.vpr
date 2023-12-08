@@ -1,0 +1,15 @@
+method sqrt(n: Int) returns (r: Int)
+  requires n >= 0
+  ensures r * r <= n 
+  ensures n < (r+1) * (r+1)
+{
+  var x: Int := 1
+  r := 0
+  while (x <= n) 
+    invariant r * r <= n
+    invariant x == (r+1) * (r+1)
+  {
+    // TODO
+    r := r + 1
+  }
+}

@@ -1,0 +1,31 @@
+method main() {
+    var n: Int := 1
+    var x: Int := 10
+
+    while (x > 0)
+        invariant x >= 0
+    {
+      x := x - n
+    }
+}
+
+method encoding() {
+    var n: Int := 1
+    var x: Int := 10
+
+    x := loop(x, n)
+}
+
+method loop(x: Int, n: Int) returns (y: Int)
+    requires x >= 0
+    //requires n == 1 // <- we need to strengthen the invariant for the modular encoding
+    ensures y >= 0
+{
+    y := x
+    if (y > 0) {
+        y := y - n
+        y := loop(y, n)
+    } else {
+        // skip
+    }
+}

@@ -1,0 +1,62 @@
+field next: Ref
+field elem: Int
+
+predicate list(this: Ref) {
+    acc(this.elem) && acc(this.next) && 
+    (this.next != null ==> list(this.next))
+}
+
+function length(this: Ref): Int
+    requires acc(list(this), wildcard)
+{
+    unfolding acc(list(this), wildcard) in (this.next == null ? 0 : length(this.next) + 1)
+}
+
+method client(this: Ref) returns (res: Ref)
+    requires list(this)
+    ensures  list(this) && list(res)
+{
+    res := zip(this, this)
+}
+
+method zip(this: Ref, that: Ref) returns (res: Ref)
+    requires acc(list(this), 1/2) && acc(list(that), 1/2)
+    ensures acc(list(this), 1/2) && acc(list(that), 1/2)
+    ensures list(res)
+    ensures  res != null
+    ensures length(res) == length(this) + length(that)  
+{
+    unfold acc(list(this), 1/2)
+    if(this.next == null) {
+        res := cloneList(that)
+    } else {
+        res := new(*)
+        res.elem := this.elem
+        var rest: Ref
+        rest := zip(that, this.next)
+        res.next := rest
+        fold list(res)
+    }
+    fold acc(list(this), 1/2)
+}
+
+method cloneList(this: Ref) returns (res: Ref)
+    requires acc(list(this), 1/2)
+    ensures  acc(list(this), 1/2) && list(res)
+    ensures  res != null
+    ensures length(res) == length(this) 
+{
+    res := new(*)
+
+    unfold acc(list(this), 1/2)
+    if(this.next == null) {
+        res.next := null
+    } else {
+        var tmp: Ref
+        tmp := cloneList(this.next)
+        res.elem := this.elem
+        res.next := tmp
+    }
+    fold acc(list(this), 1/2)
+    fold list(res)
+}

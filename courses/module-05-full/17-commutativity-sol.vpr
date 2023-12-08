@@ -1,0 +1,78 @@
+// my very own multiplication function 
+function X(n: Int, m: Int): Int 
+  requires n >= 0 && m >= 0
+{
+  m == 0 ? 0 : n + X(n, m-1)
+}
+
+method lemma_X_commutative(n: Int, m: Int)
+  requires n >= 0 && m >= 0
+  ensures X(n, m) == X(m, n)
+{
+  if (n == m) {
+    // works
+  } else {
+    if (n == 0) {
+      assert X(n, m) == 0 + X(0, m-1)
+      lemma_X_commutative(0, m-1)
+    } else {
+      if (m < n) {
+        lemma_X_commutative(m, n)
+      } else {
+        //assert n != 0 && m >= n
+        //assert X(n, m) == n + X(n, m - 1)
+        lemma_X_commutative(n, m-1)
+        //assert X(n, m) == n + X(m-1, n)
+        //assert X(n, m) == n + m - 1 + X(m-1, n-1)
+        lemma_X_commutative(m-1, n-1)
+        //assert X(n, m) == n + m - 1 + X(n-1, m-1)
+        //assert X(n, m) == m + X(n-1, m)
+        lemma_X_commutative(n-1, m)
+        //assert X(n, m) == m + X(m, n-1)
+        //assert X(n, m) == X(m, n)
+      }
+    }
+  }
+}
+
+define V(n,m) (n+m)
+
+method lemma_X_commutative_termination(n: Int, m: Int)
+  requires n >= 0 && m >= 0
+  ensures X(n, m) == X(m, n)
+  //decreases V(n,m)
+{
+  var v: Int := V(n,m); assert v >= 0 // <-- set up variant
+  if (n == m) {
+    // works
+  } else {
+    if (n == 0) {
+      assert X(n, m) == 0 + X(0, m-1)
+      assert V(0, m-1) < v // <- variant decreases
+      lemma_X_commutative_termination(0, m-1)
+    } else {
+      if (m == 0) {
+        //assert V(m, n) < v // <- variant decreases
+        //lemma_X_commutative(m, n)
+        assert n > 0 && X(n, m) == 0
+        assert X(m, n) == 0 + X(m, n-1)
+        assert V(m, n-1) < v // <- variant decreases
+        lemma_X_commutative_termination(m, n-1)
+      } else {
+        assert X(n, m) == n + X(n, m - 1)
+        assert V(n, m-1) < v // <- variant decreases
+        lemma_X_commutative_termination(n, m-1)
+        assert X(n, m) == n + X(m-1, n)
+        assert X(n, m) == n + m - 1 + X(m-1, n-1)
+        assert V(m-1, n-1) < v // <- variant decreases
+        lemma_X_commutative_termination(m-1, n-1)
+        assert X(n, m) == n + m - 1 + X(n-1, m-1)
+        assert X(n, m) == m + X(n-1, m)
+        assert V(n-1, m) < v // <- variant decreases
+        lemma_X_commutative_termination(n-1, m)
+        assert X(n, m) == m + X(m, n-1)
+        assert X(n, m) == X(m, n)
+      }
+    }
+  }
+}

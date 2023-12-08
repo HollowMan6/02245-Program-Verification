@@ -1,0 +1,124 @@
+predicate time_credit()
+method consume_time_credit()
+    requires time_credit()
+
+
+// PART 1: Dynamic array predicate
+//
+// Define a predicate for a dynamic array. You may define new fields. You may
+// add arguments or heap-based functions for abstraction.
+
+
+
+// Class list
+field len: Int;
+field cap: Int;
+
+// Class node
+field elem: Int // for integer arrays
+function array_offset(base: Ref, idx: Int): Ref
+
+domain Array {
+    function first(r: Ref):Ref
+    function second(r: Ref): Int
+    axiom injectivity {
+         forall a: Ref, i: Int :: {array_offset(a, i)}
+        first(array_offset(a, i)) == a &&
+        second(array_offset(a, i)) == i
+    }
+}
+
+define array(arr, content) (
+    acc(arr.cap) 
+    && acc(arr.len)
+    && arr != null 
+    && arr.len >= 0 
+    && arr.len  <= arr.cap
+    && arr.cap > 0
+    && |content| == arr.len
+    &&  (forall i: Int :: 0 <= i && i < arr.cap ==> acc(array_offset(arr, i).elem))
+    &&  (forall i: Int :: 0 <= i && i < arr.len ==> array_offset(arr, i).elem == content[i]) 
+)
+
+predicate dyn_array(arr: Ref, content: Seq[Int]) {
+   array(arr, content)
+}
+
+
+
+// PART 2: "Simple" append method
+//
+// Use the dyn_array predicate you defined to implement a method which appends
+// the given value at the end of the dynamic array, assuming the capacity is
+// sufficient as a precondition.
+method append_nogrow(arr: Ref, val: Int, content: Seq[Int])
+    requires dyn_array(arr, content) 
+    requires unfolding dyn_array(arr, content) in arr.cap - arr.len >= 1
+    ensures  dyn_array(arr, content ++ Seq(val))
+    ensures (unfolding dyn_array(arr, content ++ Seq(val)) in arr.len) == old(unfolding dyn_array(arr, content) in arr.len) + 1
+{
+    unfold dyn_array(arr, content)
+    array_offset(arr,arr.len).elem := val;
+    arr.len := arr.len + 1
+    fold dyn_array(arr, content ++ Seq(val))
+}
+
+// PART 3: Resize method
+//
+// Use the dyn_array predicate you defined to implement a method which
+// reallocates the given dynamic array, doubling its capacity and copying over
+// its original contents.
+method grow(arr: Ref,  content: Seq[Int])
+    returns (new_arr: Ref)
+    requires dyn_array(arr,  content)
+    requires unfolding dyn_array(arr, content) in arr.len == arr.cap
+    ensures dyn_array(new_arr,content)
+    ensures unfolding dyn_array(new_arr,content) in new_arr.cap - new_arr.len >= 1
+{
+    unfold dyn_array(arr,content)
+    new_arr := new(*)
+    new_arr.cap := arr.cap * 2;
+
+    new_arr.len := arr.len
+    var index:Int := 0;
+    
+    inhale forall i:Int :: 0 <= i && i < new_arr.cap ==> acc(array_offset(new_arr,i).elem)
+
+    while (index < arr.len)
+        invariant acc(new_arr.cap) && acc(new_arr.len) && new_arr != null  && new_arr.len >= 0  && new_arr.len  <= new_arr.cap && |content| == new_arr.len
+        invariant array(arr, content)
+        invariant 0 <= index <= arr.len
+        invariant arr.len == new_arr.len
+        invariant (forall i: Int :: 0 <= i && i < new_arr.cap ==> acc(array_offset(new_arr, i).elem))
+        invariant (forall i: Int :: 0 <= i && i < arr.len ==> array_offset(arr, i).elem == content[i])
+        invariant (forall j: Int :: 0 <= j && j < index ==> array_offset(new_arr, j).elem ==  array_offset(arr, j).elem)
+        invariant new_arr.cap - arr.len >= 1
+    {
+        array_offset(new_arr, index).elem :=  array_offset(arr, index).elem;
+        index:= index + 1
+    }
+
+    fold dyn_array(new_arr, content)
+
+}
+
+// PART 4: "Full" append method
+//
+// Using the previous two methods, implement a method which will append a value
+// to the given dynamic array, resizing it first if necessary.
+method append(arr: Ref, val: Int, content: Seq[Int])
+    returns (new_arr: Ref)
+    requires dyn_array(arr, content)
+    ensures dyn_array(new_arr, content ++ Seq(val))
+{
+    unfold dyn_array(arr,content)
+    if (arr.len == arr.cap) {
+        fold dyn_array(arr, content)
+        new_arr := grow(arr, content)
+        append_nogrow(new_arr, val, content)
+    } else {
+        fold dyn_array(arr, content)
+        new_arr := arr
+        append_nogrow(new_arr, val, content)
+    }
+}

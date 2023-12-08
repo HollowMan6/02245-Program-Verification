@@ -1,0 +1,23 @@
+// TODO: write a function choose1 and a method choose2
+
+method client1() {
+  var x: Int
+  var y: Int
+
+  x := choose1()
+  y := choose1()
+
+  assert x == y
+  assert x != y
+}
+
+method client2() {
+  var x: Int
+  var y: Int
+
+  x := choose2()
+  y := choose2()
+
+  assert x == y
+  assert x != y
+}

@@ -1,0 +1,16 @@
+method factorial(n: Int) returns (res: Int)
+  requires 0 <= n
+  ensures  1 <= res && n <= res 
+{
+  res := n + 1
+}
+
+
+method client()
+{
+    var x: Int 
+    var z: Int
+    x := 0
+    z := factorial(5)
+    assert x == 0
+}

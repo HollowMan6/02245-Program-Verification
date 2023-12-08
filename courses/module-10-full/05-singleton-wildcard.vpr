@@ -1,0 +1,23 @@
+// Singleton
+field val: Int
+
+// Factory
+field cache: Ref
+
+predicate factory(this: Ref) {
+    acc(this.cache) && 
+    (this.cache != null ==> acc(this.cache.val, wildcard))
+}
+
+method get(this: Ref) returns (f: Ref)
+    requires factory(this)
+    ensures  factory(this) && acc(f.val, wildcard)
+{
+    unfold factory(this)
+    if(this.cache == null) {
+        f := new(val)
+        this.cache := f
+    }
+    f := this.cache
+    fold factory(this)
+}

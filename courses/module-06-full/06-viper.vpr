@@ -1,0 +1,19 @@
+method entry() {
+  var x: Int
+
+  while (0 < x) 
+    invariant 0 < x // read the error
+  { 
+  } 
+}
+
+method preservation() {
+  var x: Int
+  x := 5
+
+  while (0 < x) 
+    invariant 0 < x // read the error
+  { 
+    x := x - 1
+  } 
+}

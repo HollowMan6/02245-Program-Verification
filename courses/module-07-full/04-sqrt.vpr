@@ -1,0 +1,16 @@
+function sqrt(n: Int): Int
+  requires 0 <= n
+  ensures  0 <= result
+  ensures  result * result <= n && 
+           n < (result+1) * (result+1)
+
+
+method client() 
+{
+  var a: Int 
+  var b: Int 
+  var c: Int 
+
+  c := sqrt(a*a + b*b)
+  assert a*a + b*b - c*c < 2*c + 1 
+}

@@ -1,0 +1,10 @@
+function Fac2(n: Int): Int 
+  requires 0 <= n
+  ensures 2 <= result 
+
+method client()
+{
+  var x: Int; assume x >= 0
+
+  assert 4 <= Fac2(x) * Fac2(x)
+}

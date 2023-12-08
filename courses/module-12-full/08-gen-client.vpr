@@ -1,0 +1,402 @@
+domain MirrorDomain {
+  
+  function mirror_simple$m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(_1: Snap$m_List$_beg_$_end_): Int
+}
+
+domain Snap$m_List$_beg_$_end_ {
+  
+  function discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(self: Snap$m_List$_beg_$_end_): Int
+  
+  function cons$0$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(): Snap$m_List$_beg_$_end_
+  
+  function cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0: Snap$struct$m_Node): Snap$m_List$_beg_$_end_
+  
+  function Snap$m_List$_beg_$_end_$1$field$f$0__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node(self: Snap$m_List$_beg_$_end_): Snap$struct$m_Node
+  
+  axiom Snap$m_List$_beg_$_end_$discriminant_range {
+    (forall self: Snap$m_List$_beg_$_end_ ::
+      { discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(self) }
+      0 <=
+      discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(self) &&
+      discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(self) <=
+      1)
+  }
+  
+  axiom Snap$m_List$_beg_$_end_$0$discriminant_axiom {
+    discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(cons$0$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_()) ==
+    0
+  }
+  
+  axiom Snap$m_List$_beg_$_end_$1$injectivity {
+    (forall _l_0: Snap$struct$m_Node, _r_0: Snap$struct$m_Node ::
+      { cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_l_0),
+      cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_r_0) }
+      cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_l_0) ==
+      cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_r_0) ==>
+      _l_0 == _r_0)
+  }
+  
+  axiom Snap$m_List$_beg_$_end_$1$discriminant_axiom {
+    (forall _0: Snap$struct$m_Node ::
+      { cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0) }
+      discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0)) ==
+      1)
+  }
+  
+  axiom Snap$m_List$_beg_$_end_$1$field$f$0$axiom {
+    (forall _0: Snap$struct$m_Node ::
+      { Snap$m_List$_beg_$_end_$1$field$f$0__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node(cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0)) }
+      Snap$m_List$_beg_$_end_$1$field$f$0__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node(cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0)) ==
+      _0)
+  }
+}
+
+domain Snap$struct$m_Node {
+  
+  function Snap$struct$m_Node$0$field$f$next__$TY$__Snap$struct$m_Node$Snap$m_List$_beg_$_end_(self: Snap$struct$m_Node): Snap$m_List$_beg_$_end_
+}
+
+field discriminant: Int
+
+field enum_More: Ref
+
+field f$0: Ref
+
+field tuple_0: Ref
+
+field tuple_1: Ref
+
+field val_bool: Bool
+
+field val_int: Int
+
+field val_ref: Ref
+
+function builtin$unreach__$TY$__$int$$$int$(): Int
+  requires false
+
+
+function m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(_1: Snap$m_List$_beg_$_end_): Int
+  requires true
+  requires true
+  ensures result >= 0
+  ensures [result ==
+    mirror_simple$m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(_1),
+    true]
+{
+  (discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(_1) ==
+  0 ?
+    0 :
+    1 +
+    m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(Snap$struct$m_Node$0$field$f$next__$TY$__Snap$struct$m_Node$Snap$m_List$_beg_$_end_(Snap$m_List$_beg_$_end_$1$field$f$0__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_1))))
+}
+
+function snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(self: Ref): Snap$m_List$_beg_$_end_
+  requires acc(m_List$_beg_$_end_(self), read$())
+{
+  ((unfolding acc(m_List$_beg_$_end_(self), read$()) in self.discriminant) ==
+  1 ?
+    cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_((unfolding acc(m_List$_beg_$_end_(self), read$()) in
+      (unfolding acc(m_List$_beg_$_end_More(self.enum_More), read$()) in
+        (unfolding acc(struct$m_std$$boxed$$Box$struct$m_Node$struct$m_std$$alloc$$Global(self.enum_More.f$0), read$()) in
+          snap$__$TY$__Snap$struct$m_Node$struct$m_Node$Snap$struct$m_Node(self.enum_More.f$0.val_ref))))) :
+    cons$0$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_())
+}
+
+function snap$__$TY$__Snap$struct$m_Node$struct$m_Node$Snap$struct$m_Node(self: Ref): Snap$struct$m_Node
+  requires acc(struct$m_Node(self), read$())
+
+
+function read$(): Perm
+  ensures none < result
+  ensures result < write
+
+
+predicate DeadBorrowToken$(borrow: Int) 
+
+predicate m_List$_beg_$_end_(self: Ref) {
+  acc(self.discriminant, write) &&
+  (0 <= self.discriminant && self.discriminant <= 1 &&
+  (acc(self.enum_More, write) &&
+  acc(m_List$_beg_$_end_More(self.enum_More), write)))
+}
+
+predicate m_List$_beg_$_end_More(self: Ref) {
+  acc(self.f$0, write) &&
+  acc(struct$m_std$$boxed$$Box$struct$m_Node$struct$m_std$$alloc$$Global(self.f$0), write)
+}
+
+predicate struct$m_Node(self: Ref) 
+
+predicate struct$m_std$$boxed$$Box$struct$m_Node$struct$m_std$$alloc$$Global(self: Ref) {
+  acc(self.val_ref, write) && acc(struct$m_Node(self.val_ref), write)
+}
+
+predicate tuple0$(self: Ref) {
+  true
+}
+
+method m_client() returns (_0: Ref)
+{
+  var __t0: Bool
+  var __t1: Bool
+  var __t2: Bool
+  var __t3: Bool
+  var __t4: Bool
+  var __t5: Bool
+  var __t6: Bool
+  var __t7: Bool
+  var __t8: Bool
+  var __t9: Bool
+  var __t10: Bool
+  var _1: Ref
+  var _2: Ref
+  var _3: Ref
+  var _4: Ref
+  var _5: Ref
+  var _7: Ref
+  var _8: Ref
+  var _9: Int
+  var _10: Ref
+  var _11: Ref
+  var _12: Int
+  var _13: Ref
+  var _14: Ref
+  label start
+  // ========== start ==========
+  // Def path: "00_zip_lists::client"
+  // Span: /Users/chmat/repos/program-verification/2022-02245/examples/L11-frontends/complete/00-zip-lists.rs:73:1: 76:2 (#0)
+  __t0 := false
+  __t1 := false
+  __t2 := false
+  __t3 := false
+  __t4 := false
+  __t5 := false
+  __t6 := false
+  __t7 := false
+  __t8 := false
+  // Preconditions:
+  inhale acc(m_List$_beg_$_end_(_1), write)
+  inhale true
+  label pre
+  // ========== bb0 ==========
+  __t0 := true
+  // [mir] StorageLive(_2)
+  // [mir] StorageLive(_3)
+  // [mir] _3 = &_1
+  _3 := builtin$havoc_ref()
+  inhale acc(_3.val_ref, write)
+  _3.val_ref := _1
+  exhale acc(m_List$_beg_$_end_(_1), write - read$())
+  inhale acc(m_List$_beg_$_end_(_3.val_ref), read$())
+  label l0
+  // [mir] StorageLive(_4)
+  // [mir] StorageLive(_5)
+  // [mir] _5 = &_1
+  _5 := builtin$havoc_ref()
+  inhale acc(_5.val_ref, write)
+  _5.val_ref := _1
+  inhale acc(m_List$_beg_$_end_(_5.val_ref), read$())
+  label l1
+  // [mir] _4 = &(*_5)
+  _4 := builtin$havoc_ref()
+  inhale acc(_4.val_ref, write)
+  _4.val_ref := _5.val_ref
+  inhale acc(m_List$_beg_$_end_(_4.val_ref), read$())
+  label l2
+  // [mir] _2 = List::zip(move _3, move _4) -> [return: bb1, unwind: bb10]
+  label l3
+  assert true
+  exhale acc(_3.val_ref, write) && acc(_4.val_ref, write)
+  _2 := builtin$havoc_ref()
+  inhale acc(m_List$_beg_$_end_(_2), write)
+  // transfer perm _3.val_ref --> old[l3](_3.val_ref) // unchecked: true
+  // transfer perm _4.val_ref --> old[l3](_4.val_ref) // unchecked: true
+  inhale true
+  inhale m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(_2)) ==
+    m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(old[l3](_3.val_ref))) +
+    m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(old[l3](_4.val_ref)))
+  label l4
+  // ========== l5 ==========
+  // MIR edge bb0 --> bb1
+  // Expire borrows
+  // expire_borrows ReborrowingDAG(L10,L9,L6,L1,L0,)
+
+  if (__t0 && __t0) {
+    // expire loan L6
+    // transfer perm old[l3](_4.val_ref) --> old[l2](_4.val_ref) // unchecked: false
+    exhale acc(m_List$_beg_$_end_(old[l2](_4.val_ref)), read$())
+  }
+  if (__t0 && (__t0 && __t0)) {
+    // expire loan L1
+    exhale acc(m_List$_beg_$_end_(_5.val_ref), read$())
+    inhale acc(m_List$_beg_$_end_(_1), write - read$())
+    // drop Pred(old[l3](_3.val_ref), read) (Pred(old[l3](_3.val_ref), read))
+  }
+  if (__t0 && __t0) {
+    // expire loan L0
+    // transfer perm old[l3](_3.val_ref) --> old[l0](_3.val_ref) // unchecked: false
+    exhale acc(m_List$_beg_$_end_(old[l0](_3.val_ref)), read$())
+    inhale acc(m_List$_beg_$_end_(_1), write - read$())
+    // drop Pred(_5.val_ref, read) (Pred(_5.val_ref, read))
+    // drop Pred(old[l3](_4.val_ref), read) (Pred(old[l3](_4.val_ref), read))
+  }
+  // ========== bb1 ==========
+  __t1 := true
+  // [mir] StorageDead(_4)
+  // [mir] StorageDead(_3)
+  // [mir] FakeRead(ForLet(None), _2)
+  // [mir] StorageDead(_5)
+  // [mir] StorageLive(_6)
+  // [mir] StorageLive(_7)
+  // [mir] StorageLive(_8)
+  // [mir] StorageLive(_9)
+  // [mir] StorageLive(_10)
+  // [mir] _10 = &_2
+  _10 := builtin$havoc_ref()
+  inhale acc(_10.val_ref, write)
+  _10.val_ref := _2
+  exhale acc(m_List$_beg_$_end_(_2), write - read$())
+  inhale acc(m_List$_beg_$_end_(_10.val_ref), read$())
+  label l6
+  // [mir] _9 = List::len(move _10) -> [return: bb2, unwind: bb9]
+  label l7
+  _9 := builtin$havoc_int()
+  inhale _9 ==
+    m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(_10.val_ref))
+  // transfer perm _10.val_ref --> old[l7](_10.val_ref) // unchecked: false
+  // ========== l8 ==========
+  // MIR edge bb1 --> bb2
+  // Expire borrows
+  // expire_borrows ReborrowingDAG(L8,L2,)
+
+  if (__t1 && __t1) {
+    // expire loan L2
+    // transfer perm old[l7](_10.val_ref) --> old[l6](_10.val_ref) // unchecked: false
+    exhale acc(m_List$_beg_$_end_(old[l6](_10.val_ref)), read$())
+    inhale acc(m_List$_beg_$_end_(_2), write - read$())
+  }
+  // ========== bb2 ==========
+  __t2 := true
+  // [mir] StorageDead(_10)
+  // [mir] StorageLive(_11)
+  // [mir] StorageLive(_12)
+  // [mir] StorageLive(_13)
+  // [mir] _13 = &_1
+  _13 := builtin$havoc_ref()
+  inhale acc(_13.val_ref, write)
+  _13.val_ref := _1
+  exhale acc(m_List$_beg_$_end_(_1), write - read$())
+  inhale acc(m_List$_beg_$_end_(_13.val_ref), read$())
+  label l9
+  // [mir] _12 = List::len(move _13) -> [return: bb3, unwind: bb9]
+  label l10
+  _12 := builtin$havoc_int()
+  inhale _12 ==
+    m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(_13.val_ref))
+  // transfer perm _13.val_ref --> old[l10](_13.val_ref) // unchecked: false
+  // ========== l11 ==========
+  // MIR edge bb2 --> bb3
+  // Expire borrows
+  // expire_borrows ReborrowingDAG(L7,L3,)
+
+  if (__t2 && __t2) {
+    // expire loan L3
+    // transfer perm old[l10](_13.val_ref) --> old[l9](_13.val_ref) // unchecked: false
+    exhale acc(m_List$_beg_$_end_(old[l9](_13.val_ref)), read$())
+    inhale acc(m_List$_beg_$_end_(_1), write - read$())
+  }
+  // ========== bb3 ==========
+  __t3 := true
+  // [mir] StorageDead(_13)
+  // [mir] _14 = CheckedMul(const 2_usize, _12)
+  _14 := builtin$havoc_ref()
+  inhale acc(_14.tuple_0, write)
+  inhale acc(_14.tuple_0.val_int, write)
+  inhale acc(_14.tuple_1, write)
+  inhale acc(_14.tuple_1.val_bool, write)
+  _14.tuple_0.val_int := 2 * _12
+  _14.tuple_1.val_bool := false
+  // [mir] assert(!move (_14.1: bool), "attempt to compute `{} * {}`, which would overflow", const 2_usize, move _12) -> [success: bb4, unwind: bb9]
+  __t9 := _14.tuple_1.val_bool
+  // Rust assertion: attempt to multiply with overflow
+  assert !__t9
+  // ========== bb4 ==========
+  __t4 := true
+  // [mir] _11 = move (_14.0: usize)
+  _11 := _14.tuple_0
+  label l12
+  // [mir] StorageDead(_12)
+  // [mir] _8 = Eq(move _9, move _11)
+  _8 := builtin$havoc_ref()
+  inhale acc(_8.val_bool, write)
+  _8.val_bool := _9 == _11.val_int
+  // [mir] StorageDead(_11)
+  // [mir] StorageDead(_9)
+  // [mir] _7 = Not(move _8)
+  _7 := builtin$havoc_ref()
+  inhale acc(_7.val_bool, write)
+  _7.val_bool := !_8.val_bool
+  // [mir] StorageDead(_8)
+  // [mir] switchInt(move _7) -> [false: bb6, otherwise: bb5]
+  __t10 := _7.val_bool
+  if (__t10) {
+    goto bb0
+  }
+  goto return
+  label bb0
+  // ========== l14 ==========
+  // MIR edge bb4 --> bb5
+  // ========== bb5 ==========
+  __t5 := true
+  // [mir] StorageLive(_15)
+  // [mir] _15 = core::panicking::panic(const "assertion failed: z.len() == 2 * l.len()") -> bb9
+  // Rust panic - const "assertion failed: z.len() == 2 * l.len()"
+  assert false
+  goto end_of_method
+  label return
+  // ========== l13 ==========
+  // MIR edge bb4 --> bb6
+  // ========== bb6 ==========
+  __t6 := true
+  // [mir] _6 = const ()
+  // [mir] StorageDead(_7)
+  // [mir] StorageDead(_6)
+  // [mir] _0 = const ()
+  // [mir] drop(_2) -> [return: bb7, unwind: bb10]
+  // ========== bb7 ==========
+  __t7 := true
+  // [mir] StorageDead(_2)
+  // [mir] drop(_1) -> [return: bb8, unwind: bb11]
+  // ========== bb8 ==========
+  __t8 := true
+  // [mir] return
+  // ========== return ==========
+  // Target of any 'return' statement.
+  // Exhale postcondition
+  label l16
+  // Fold predicates for &mut args and transfer borrow permissions to old
+  // Fold the result
+  fold acc(tuple0$(_0), write)
+  // obtain acc(tuple0$(_0), write)
+  // Assert possible strengthening
+  // Assert functional specification of postcondition
+  assert m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(old[pre](snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(_1))) ==
+    old[pre](m_List$$len__$TY$__Snap$m_List$_beg_$_end_$$int$(snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(_1)))
+  // Assert type invariants
+  assert true
+  // Exhale permissions of postcondition (1/3)
+  // Exhale permissions of postcondition (2/3)
+  exhale acc(tuple0$(_0), write)
+  // Exhale permissions of postcondition (3/3)
+  goto end_of_method
+  label end_of_method
+}
+
+method builtin$havoc_bool() returns (ret: Bool)
+
+
+method builtin$havoc_int() returns (ret: Int)
+
+
+method builtin$havoc_ref() returns (ret: Ref)

@@ -1,0 +1,62 @@
+predicate time_credit()
+method consume_time_credit()
+    requires time_credit()
+
+function math_pow(n: Int, e: Int): Int
+    requires 0 <= e
+{
+    e == 0 ? 1 : n * math_pow(n, e - 1)
+}
+
+function logarithm(n: Int): Int
+    requires 0 < n
+    ensures 0 <= result
+{
+    n == 1 ? 0 : 1 + logarithm(n / 2)
+}
+
+method lemma_pow(b: Int, y: Int)
+    requires 0 <= y
+    requires y % 2 == 0
+    ensures math_pow(b, y) == math_pow(b * b, y / 2)
+
+// Add time credit annotations to the following method.
+//
+// Remember to insert consume_time_credit() calls according to the background
+// section in the project assignment.
+//
+// You may define additional functions or lemma methods, you may add ghost
+// variables and arguments, and you may augment the method body as you see fit.
+// Make sure the functional contract remains intact!
+
+method fast_pow(n: Int, e: Int)
+    returns (res: Int)
+    requires 0 < e
+    requires acc(time_credit(),   ((logarithm(e) + 2)/1))
+    ensures res == math_pow(n, e)
+
+{
+    var b: Int
+    var y: Int
+    res := 1
+    b := n
+    y := e
+    consume_time_credit()
+    while (y > 0)
+        invariant 0 <= y
+        invariant res * math_pow(b, y) == math_pow(n, e)
+        invariant  y > 0 ==> acc(time_credit(), (logarithm(y) +1)/1)
+    {
+        consume_time_credit()
+
+        if (y % 2 == 1) {
+            lemma_pow(b, y - 1)
+            res := res * b
+        } else { 
+            lemma_pow(b, y)
+        }
+        y := y / 2
+        b := b * b
+    }
+
+}

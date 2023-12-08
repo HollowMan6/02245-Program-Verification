@@ -1,0 +1,21 @@
+method main() {
+  var n: Int
+  var i: Int
+  var r: Int
+
+  assume n >= 0
+
+  i := 1
+  r := 0
+
+  while (i <= n) 
+    invariant 0 <= r && 1 <= i
+  {
+    r := r + i
+    i := i + 1
+  }
+
+  assert 0 <= r
+}
+
+

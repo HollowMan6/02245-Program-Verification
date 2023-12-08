@@ -1,0 +1,46 @@
+// Translation for running example with wrong postcondition; 
+// we use the computation of multiple proof obligations, starting
+// with the empty set {}.
+// Notice that we need to duplicate branches again with this approach.
+method main()
+{
+    // preamble
+    var x0: Int 
+    var y0: Int
+    var z0: Int 
+    var z1: Int 
+    var z2: Int 
+    var star: Bool
+
+    // -----------------
+    // { x0 >= 0 && y0 >= 0 ==> z0 == x0 - y0 ==> z0 < 0 ==> z1 == z0 + y0 ==> z2 == z1 + 2 * x0 ==> z2 == 3 * x0,
+    //   x0 >= 0 && y0 >= 0 ==> z0 == x0 - y0 ==> !(z0 < 0) ==> z1 == z0 - x0 ==> z2 == z1 + 4 * y0 ==> z2 == 3 * x0 }
+    assume x0 >= 0 && y0 >= 0
+    // { z0 == x0 - y0 ==> z0 < 0 ==> z1 == z0 + y0 ==> z2 == z1 + 2 * x0 ==> z2 == 3 * x0,
+    //   z0 == x0 - y0 ==> !(z0 < 0) ==> z1 == z0 - x0 ==> z2 == z1 + 4 * y0 ==> z2 == 3 * x0 }
+    assume z0 == x0 - y0
+    // { z0 < 0 ==> z1 == z0 + y0 ==> z2 == z1 + 2 * x0 ==> z2 == 3 * x0,
+    //   !(z0 < 0) ==> z1 == z0 - x0 ==> z2 == z1 + 4 * y0 ==> z2 == 3 * x0 }
+    if (star) {
+        // { z0 < 0 ==> z1 == z0 + y0 ==> z2 == z1 + 2 * x0 ==> z2 == 3 * x0 }
+        assume z0 < 0
+        // { z1 == z0 + y0 ==> z2 == z1 + 2 * x0 ==> z2 == 3 * x0 }
+        assume z1 == z0 + y0
+        // { z2 == z1 + 2 * x0 ==> z2 == 3 * x0 }
+        assume z2 == z1 + 2 * x0
+        // { z2 == 3 * x0 }
+    } else {
+        // { !(z0 < 0) ==> z1 == z0 - x0 ==> z2 == z1 + 4 * y0 ==> z2 == 3 * x0 }
+        assume !(z0 < 0)
+        // { z1 == z0 - x0 ==> z2 == z1 + 4 * y0 ==> z2 == 3 * x0 }
+        assume z1 == z0 - x0
+        // { z2 == z1 + 4 * y0 ==> z2 == 3 * x0 }
+        assume z2 == z1 + 4 * y0
+        // { z2 == 3 * x0 }
+    }
+    // { z2 == 3 * x0 } (back-translation map: assertion corresponds to line 6,
+                      // the postcondition in the original program)
+    assert z2 == 3 * x0
+    // {}
+    
+}

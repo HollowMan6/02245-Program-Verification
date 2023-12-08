@@ -1,0 +1,15 @@
+field val: Int // global field declaration
+
+//field bar: Bool // <-- another field 
+
+method foo() returns (res: Int)
+{
+  var cell: Ref // reference to an object
+  cell := new(val) // create a new object with this field
+  //cell := new(bar, val) // <---- we can just overwrite the ref even though the object has different fields
+  cell.val := 5 // field-write
+  // cell.bar := true // <--- fails unless we create object with both fields
+  res := cell.val // field-read
+
+  assert res == 5
+}

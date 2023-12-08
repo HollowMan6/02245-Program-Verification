@@ -1,0 +1,34 @@
+field f: Int
+
+method swap(a: Ref, b: Ref)
+  requires acc(a.f) && acc(b.f)
+  ensures  acc(a.f) && acc(b.f)
+  ensures  a.f == old(b.f) && b.f == old(a.f)
+{
+  var tmp: Int
+  tmp := a.f
+  a.f := b.f
+  b.f := tmp
+}
+
+method client(cell1: Ref, cell2: Ref, cell3: Ref, cell4: Ref)
+    requires acc(cell1.f) && acc(cell2.f) && acc(cell3.f) && acc(cell4.f) 
+    requires cell2.f == 5
+{
+    cell1.f := 1
+    cell2.f := 2
+
+    // precondition of left block
+    exhale acc(cell1.f) && acc(cell2.f)
+    // precondition of right block
+    exhale acc(cell3.f) && acc(cell4.f)
+
+    // postcondition of left block
+    inhale acc(cell1.f) && acc(cell2.f)
+    inhale cell1.f == old(cell2.f) && cell2.f == old(cell1.f)
+    // postcondition of right block
+    inhale acc(cell3.f) && acc(cell4.f)
+    inhale cell3.f == old(cell4.f) && cell3.f == old(cell4.f)
+
+    assert cell1.f == 5
+}

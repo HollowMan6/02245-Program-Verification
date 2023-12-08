@@ -1,0 +1,50 @@
+domain IntExt {
+
+    function exp(n: Int): Int 
+    function fac(n: Int): Int 
+
+    axiom {
+        exp(0) == 1
+    }
+
+    axiom {
+        forall n:Int :: n >= 0 ==> exp(n+1) == 2 * exp(n)
+    }
+
+    axiom {
+        fac(0) == 1
+    }
+
+    axiom {
+        forall n:Int :: n >= 0 ==> fac(n+1) == (n+1) * fac(n) 
+    }
+
+    axiom {
+        forall n:Int :: n >= 0 ==> exp(n) > 0 && fac(n) > 0
+    }
+}
+
+method main() {
+
+    assert exp(0) >= fac(0)    
+    assert exp(1) > fac(1)
+    assert exp(2) > fac(2)
+    assert exp(3) > fac(3) // m == 3
+    assert exp(4) < fac(4)
+
+    // claim: for n >= 4, we have exp(n) <= fac(n)
+
+    var n: Int
+    assume n >= 4
+
+    if (n == 4) {
+        // induction base
+        assert exp(n) <= fac(n)
+    } else {
+        // induction hypothesis
+        assume exp(n-1) <= fac(n-1)
+
+        // check claim
+        assert exp(n) <= fac(n)
+    }
+}

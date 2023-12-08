@@ -1,0 +1,19 @@
+method main() {
+  var n: Int
+  var i: Int
+  var r: Int
+
+  assume n >= 0
+
+  i := 1
+  r := 0
+
+  while (i <= n) 
+    invariant false // TODO  
+  {
+    r := r + i
+    i := i + 1
+  }
+
+  assert r == n * (n+1) / 2
+}

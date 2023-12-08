@@ -1,0 +1,48 @@
+// try out with carbon
+
+function sorted(xs: Seq[Int]): Bool
+{
+    |xs| <= 1 ? true 
+              : xs[0] <= xs[1] && sorted(xs[1..])
+}
+
+method insertion_sort(xs: Seq[Int]) returns (ys: Seq[Int])
+    ensures sorted(ys)
+    ensures |ys| == |xs|
+    // decreases |xs|
+{
+    var v: Int := |xs|; assert v >= 0
+    if (|xs| == 0) {
+        ys := Seq[Int]()
+    } else {
+        assert |xs[1..]| < |xs|
+        ys := insertion_sort(xs[1..])
+        ys := insert(xs[0], ys)
+    }
+}
+
+
+
+method insert(x: Int, xs: Seq[Int]) returns (ys: Seq[Int])
+    requires sorted(xs)
+    ensures sorted(ys)
+    ensures |ys| == |xs| + 1
+    ensures |xs| == 0 ==> ys[0] == x 
+    ensures (|xs| > 0 ==> ys[0] == x || ys[0] == xs[0])
+    // decreases |xs|
+{
+    var v: Int := |xs|; assert v >= 0
+    if (|xs| == 0) {
+        ys := Seq(x)
+    } else {
+        assert xs == Seq(xs[0]) ++ xs[1..]
+        var y:Int := xs[0]
+        if (x < y) {
+            ys := Seq(x) ++ xs
+        } else {
+            assert |xs[1..]| < v
+            ys := insert(x, xs[1..])
+            ys := Seq(y) ++ ys
+        }
+    }
+}

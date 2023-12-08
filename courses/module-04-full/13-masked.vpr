@@ -1,0 +1,29 @@
+// try out with silicon and carbon 
+method case1()
+{
+    var x: Int
+
+    // -------------
+
+    assert x == 2
+    assume x == 2
+
+    assert x > 0
+    assume x > 0
+
+}
+
+
+method case2()
+{
+    var x: Int
+
+    // -------------
+
+    assert x > 0
+    assume x > 0
+
+    assert x == 2
+    assume x == 2
+
+}

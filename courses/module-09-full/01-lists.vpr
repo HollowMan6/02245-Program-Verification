@@ -1,0 +1,23 @@
+field next: Ref
+field elem: Int
+
+predicate list(this: Ref) {
+    acc(this.elem) && acc(this.next) && 
+    (this.next != null ==> list(this.next))
+}
+
+method append(this: Ref, e: Int) 
+    requires list(this)
+    ensures  list(this)
+    ensures  true // list was extended
+{
+    if(this.next == null) {
+        var n: Ref
+        n := new(*)
+        n.next := null
+        this.elem := e
+        this.next := n
+    } else {
+        append(this.next, e)
+    }
+}

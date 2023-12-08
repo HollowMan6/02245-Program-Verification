@@ -1,0 +1,29 @@
+method foo(p: Int) returns (r: Int)
+    requires 0 <= p
+    ensures r == p * p
+
+method client()
+{
+    var x: Int := 4 
+    var y: Int := 4
+
+    var z: Int 
+    z := foo(x)
+
+    assert y + z == 20 
+}
+
+method encoding()
+{
+    var x: Int
+    var y: Int
+
+    x := 4 
+    y := 4
+
+    assert 0 <= x
+    var z: Int // havoc
+    assume z == x * x
+    assert y + z == 20
+    
+}

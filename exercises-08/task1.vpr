@@ -1,0 +1,47 @@
+field bal: Int
+
+
+method create() returns (b: Ref) 
+    ensures acc(b.bal) && b.bal == 0
+{
+    b := new(bal);
+    b.bal := 0;
+}
+
+method deposit(x: Ref, amount: Int) 
+    requires acc(x.bal) && amount >= 0
+    ensures acc(x.bal) && x.bal == old(x.bal) + amount
+{
+    x.bal := x.bal + amount;
+}
+
+method transfer(x: Ref, y: Ref, amount: Int)
+    requires acc(x.bal) && acc(y.bal) && amount >= 0
+    // ROBERTO: Right now you are able to transfer money that yo.u do not have!
+    // requires amount <= x.bal
+    ensures acc(x.bal) 
+    && acc(y.bal) 
+    && x.bal == old(x.bal) - amount 
+    && y.bal == old(y.bal) + amount
+{
+   
+    x.bal := old(x.bal) - amount
+    y.bal := old(y.bal) + amount
+}
+
+method client()
+{
+  var x: Ref
+  var y: Ref
+  var z: Ref
+  x := create()
+  y := create()
+  z := create()
+  deposit(x, 100)
+  deposit(y, 200)
+  deposit(z, 300)
+  transfer(x, y, 100)
+  assert x.bal == 0
+  assert y.bal == 300
+  assert z.bal == 300
+}

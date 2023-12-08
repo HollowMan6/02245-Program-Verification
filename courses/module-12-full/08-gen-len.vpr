@@ -1,0 +1,363 @@
+domain Snap$m_List$_beg_$_end_ {
+  
+  function discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(self: Snap$m_List$_beg_$_end_): Int
+  
+  function cons$0$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(): Snap$m_List$_beg_$_end_
+  
+  function cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0: Snap$struct$m_Node): Snap$m_List$_beg_$_end_
+  
+  function Snap$m_List$_beg_$_end_$1$field$f$0__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node(self: Snap$m_List$_beg_$_end_): Snap$struct$m_Node
+  
+  axiom Snap$m_List$_beg_$_end_$discriminant_range {
+    (forall self: Snap$m_List$_beg_$_end_ ::
+      { discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(self) }
+      0 <=
+      discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(self) &&
+      discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(self) <=
+      1)
+  }
+  
+  axiom Snap$m_List$_beg_$_end_$0$discriminant_axiom {
+    discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(cons$0$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_()) ==
+    0
+  }
+  
+  axiom Snap$m_List$_beg_$_end_$1$injectivity {
+    (forall _l_0: Snap$struct$m_Node, _r_0: Snap$struct$m_Node ::
+      { cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_l_0),
+      cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_r_0) }
+      cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_l_0) ==
+      cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_r_0) ==>
+      _l_0 == _r_0)
+  }
+  
+  axiom Snap$m_List$_beg_$_end_$1$discriminant_axiom {
+    (forall _0: Snap$struct$m_Node ::
+      { cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0) }
+      discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0)) ==
+      1)
+  }
+  
+  axiom Snap$m_List$_beg_$_end_$1$field$f$0$axiom {
+    (forall _0: Snap$struct$m_Node ::
+      { Snap$m_List$_beg_$_end_$1$field$f$0__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node(cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0)) }
+      Snap$m_List$_beg_$_end_$1$field$f$0__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node(cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_(_0)) ==
+      _0)
+  }
+}
+
+domain Snap$struct$m_Node {
+  
+  function cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_0: Int,
+  _1: Snap$m_List$_beg_$_end_): Snap$struct$m_Node
+  
+  function Snap$struct$m_Node$0$field$f$elem__$TY$__Snap$struct$m_Node$$int$(self: Snap$struct$m_Node): Int
+  
+  function Snap$struct$m_Node$0$field$f$next__$TY$__Snap$struct$m_Node$Snap$m_List$_beg_$_end_(self: Snap$struct$m_Node): Snap$m_List$_beg_$_end_
+  
+  axiom Snap$struct$m_Node$0$injectivity {
+    (forall _l_0: Int, _l_1: Snap$m_List$_beg_$_end_, _r_0: Int, _r_1: Snap$m_List$_beg_$_end_ ::
+      { cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_l_0,
+      _l_1), cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_r_0,
+      _r_1) }
+      cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_l_0,
+      _l_1) ==
+      cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_r_0,
+      _r_1) ==>
+      _l_0 == _r_0 && _l_1 == _r_1)
+  }
+  
+  axiom Snap$struct$m_Node$0$field$f$elem$axiom {
+    (forall _0: Int, _1: Snap$m_List$_beg_$_end_ ::
+      { Snap$struct$m_Node$0$field$f$elem__$TY$__Snap$struct$m_Node$$int$(cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_0,
+      _1)) }
+      Snap$struct$m_Node$0$field$f$elem__$TY$__Snap$struct$m_Node$$int$(cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_0,
+      _1)) ==
+      _0)
+  }
+  
+  axiom Snap$struct$m_Node$0$field$f$elem$valid {
+    (forall self: Snap$struct$m_Node ::
+      { Snap$struct$m_Node$0$field$f$elem__$TY$__Snap$struct$m_Node$$int$(self) }
+      -2147483648 <=
+      Snap$struct$m_Node$0$field$f$elem__$TY$__Snap$struct$m_Node$$int$(self) &&
+      Snap$struct$m_Node$0$field$f$elem__$TY$__Snap$struct$m_Node$$int$(self) <=
+      2147483647)
+  }
+  
+  axiom Snap$struct$m_Node$0$field$f$next$axiom {
+    (forall _0: Int, _1: Snap$m_List$_beg_$_end_ ::
+      { Snap$struct$m_Node$0$field$f$next__$TY$__Snap$struct$m_Node$Snap$m_List$_beg_$_end_(cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_0,
+      _1)) }
+      Snap$struct$m_Node$0$field$f$next__$TY$__Snap$struct$m_Node$Snap$m_List$_beg_$_end_(cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node(_0,
+      _1)) ==
+      _1)
+  }
+}
+
+field discriminant: Int
+
+field enum_More: Ref
+
+field f$0: Ref
+
+field f$elem: Ref
+
+field f$next: Ref
+
+field tuple_0: Ref
+
+field tuple_1: Ref
+
+field val_bool: Bool
+
+field val_int: Int
+
+field val_ref: Ref
+
+function m_List$_beg_$_end_$$discriminant$$__$TY$__m_List$_beg_$_end_$$int$(self: Ref): Int
+  requires acc(m_List$_beg_$_end_(self), read$())
+  ensures 0 <= result && result <= 1
+  ensures discriminant$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_$$int$(snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(self)) ==
+    result
+{
+  (unfolding acc(m_List$_beg_$_end_(self), read$()) in self.discriminant)
+}
+
+function snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(self: Ref): Snap$m_List$_beg_$_end_
+  requires acc(m_List$_beg_$_end_(self), read$())
+{
+  ((unfolding acc(m_List$_beg_$_end_(self), read$()) in self.discriminant) ==
+  1 ?
+    cons$1$__$TY$__Snap$m_List$_beg_$_end_$Snap$struct$m_Node$Snap$m_List$_beg_$_end_((unfolding acc(m_List$_beg_$_end_(self), read$()) in
+      (unfolding acc(m_List$_beg_$_end_More(self.enum_More), read$()) in
+        (unfolding acc(struct$m_std$$boxed$$Box$struct$m_Node$struct$m_std$$alloc$$Global(self.enum_More.f$0), read$()) in
+          snap$__$TY$__Snap$struct$m_Node$struct$m_Node$Snap$struct$m_Node(self.enum_More.f$0.val_ref))))) :
+    cons$0$__$TY$__Snap$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_())
+}
+
+function snap$__$TY$__Snap$struct$m_Node$struct$m_Node$Snap$struct$m_Node(self: Ref): Snap$struct$m_Node
+  requires acc(struct$m_Node(self), read$())
+{
+  cons$0$__$TY$__Snap$struct$m_Node$$int$$Snap$m_List$_beg_$_end_$Snap$struct$m_Node((unfolding acc(struct$m_Node(self), read$()) in
+    (unfolding acc(i32(self.f$elem), read$()) in self.f$elem.val_int)), (unfolding acc(struct$m_Node(self), read$()) in
+    snap$__$TY$__Snap$m_List$_beg_$_end_$m_List$_beg_$_end_$Snap$m_List$_beg_$_end_(self.f$next)))
+}
+
+function read$(): Perm
+  ensures none < result
+  ensures result < write
+
+
+predicate DeadBorrowToken$(borrow: Int) 
+
+predicate i32(self: Ref) {
+  acc(self.val_int, write)
+}
+
+predicate m_List$_beg_$_end_(self: Ref) {
+  acc(self.discriminant, write) &&
+  (0 <= self.discriminant && self.discriminant <= 1 &&
+  (acc(self.enum_More, write) &&
+  acc(m_List$_beg_$_end_More(self.enum_More), write)))
+}
+
+predicate m_List$_beg_$_end_More(self: Ref) {
+  acc(self.f$0, write) &&
+  acc(struct$m_std$$boxed$$Box$struct$m_Node$struct$m_std$$alloc$$Global(self.f$0), write)
+}
+
+predicate struct$m_Node(self: Ref) {
+  acc(self.f$elem, write) &&
+  (acc(i32(self.f$elem), write) &&
+  (acc(self.f$next, write) && acc(m_List$_beg_$_end_(self.f$next), write)))
+}
+
+predicate struct$m_std$$boxed$$Box$struct$m_Node$struct$m_std$$alloc$$Global(self: Ref) {
+  acc(self.val_ref, write) && acc(struct$m_Node(self.val_ref), write)
+}
+
+predicate usize(self: Ref) {
+  acc(self.val_int, write)
+}
+
+method m_List$$len() returns (_0: Ref)
+{
+  var __t0: Bool
+  var __t1: Bool
+  var __t2: Bool
+  var __t3: Bool
+  var __t4: Bool
+  var __t5: Bool
+  var __t6: Bool
+  var __t7: Bool
+  var __t8: Int
+  var __t9: Bool
+  var _old$pre$0: Ref
+  var _1: Ref
+  var _2: Int
+  var _3: Ref
+  var _4: Int
+  var _5: Ref
+  var _6: Ref
+  label start
+  // ========== start ==========
+  // Def path: "00_zip_lists::{impl#0}::len"
+  // Span: /Users/chmat/repos/program-verification/2022-02245/examples/L11-frontends/complete/00-zip-lists.rs:19:5: 24:6 (#0)
+  __t0 := false
+  __t1 := false
+  __t2 := false
+  __t3 := false
+  __t4 := false
+  __t5 := false
+  __t6 := false
+  __t7 := false
+  // Preconditions:
+  inhale acc(_1.val_ref, write) &&
+    acc(m_List$_beg_$_end_(_1.val_ref), read$())
+  label pre
+  // ========== bb0 ==========
+  __t0 := true
+  // [mir] FakeRead(ForMatchedPlace(None), _1)
+  // [mir] _2 = discriminant((*_1))
+  _2 := builtin$havoc_int()
+  _2 := m_List$_beg_$_end_$$discriminant$$__$TY$__m_List$_beg_$_end_$$int$(_1.val_ref)
+  // [mir] switchInt(move _2) -> [0_isize: bb1, 1_isize: bb2, otherwise: bb3]
+  __t8 := _2
+  // Ignore default target bb3, as the compiler marked it as unreachable.
+  if (__t8 == 0) {
+    goto l0
+  }
+  goto bb0
+  label bb0
+  // ========== l0 ==========
+  // MIR edge bb0 --> bb2
+  // ========== bb2 ==========
+  __t2 := true
+  // [mir] StorageLive(_3)
+  // [mir] _3 = &(*(((*_1) as More).0: std::boxed::Box<Node>))
+  _3 := builtin$havoc_ref()
+  inhale acc(_3.val_ref, write)
+  unfold acc(m_List$_beg_$_end_(_1.val_ref), read$())
+  unfold acc(m_List$_beg_$_end_More(_1.val_ref.enum_More), read$())
+  unfold acc(struct$m_std$$boxed$$Box$struct$m_Node$struct$m_std$$alloc$$Global(_1.val_ref.enum_More.f$0), read$())
+  _3.val_ref := _1.val_ref.enum_More.f$0.val_ref
+  inhale acc(struct$m_Node(_3.val_ref), read$())
+  label l2
+  // [mir] StorageLive(_4)
+  // [mir] StorageLive(_5)
+  // [mir] _5 = &((*_3).1: List)
+  _5 := builtin$havoc_ref()
+  inhale acc(_5.val_ref, write)
+  unfold acc(struct$m_Node(_3.val_ref), read$())
+  _5.val_ref := _3.val_ref.f$next
+  inhale acc(m_List$_beg_$_end_(_5.val_ref), read$())
+  label l3
+  // [mir] _4 = List::len(move _5) -> [return: bb5, unwind: bb8]
+  label l4
+  exhale acc(_5.val_ref, write)
+  _4 := builtin$havoc_int()
+  // transfer perm _5.val_ref --> old[l4](_5.val_ref) // unchecked: true
+  inhale _4 >= 0
+  label l5
+  // ========== l6 ==========
+  // MIR edge bb2 --> bb5
+  // Expire borrows
+  // expire_borrows ReborrowingDAG(L3,L4,L5,)
+
+  if (__t2 && __t2) {
+    // expire loan L4
+    // transfer perm old[l4](_5.val_ref) --> old[l3](_5.val_ref) // unchecked: false
+    exhale acc(m_List$_beg_$_end_(old[l3](_5.val_ref)), read$())
+  }
+  if (__t2 && (__t2 && __t2)) {
+    // expire loan L5
+    fold acc(struct$m_Node(_3.val_ref), read$())
+    exhale acc(struct$m_Node(_3.val_ref), read$())
+  }
+  // ========== bb5 ==========
+  __t3 := true
+  // [mir] StorageDead(_5)
+  // [mir] _6 = CheckedAdd(const 1_usize, _4)
+  _6 := builtin$havoc_ref()
+  inhale acc(_6.tuple_0, write)
+  inhale acc(_6.tuple_0.val_int, write)
+  inhale acc(_6.tuple_1, write)
+  inhale acc(_6.tuple_1.val_bool, write)
+  _6.tuple_0.val_int := 1 + _4
+  _6.tuple_1.val_bool := false
+  // [mir] assert(!move (_6.1: bool), "attempt to compute `{} + {}`, which would overflow", const 1_usize, move _4) -> [success: bb6, unwind: bb8]
+  __t9 := _6.tuple_1.val_bool
+  // Rust assertion: attempt to add with overflow
+  assert !__t9
+  // ========== bb6 ==========
+  __t4 := true
+  // [mir] _0 = move (_6.0: usize)
+  _0 := _6.tuple_0
+  label l7
+  // [mir] StorageDead(_4)
+  // [mir] StorageDead(_3)
+  // [mir] goto -> bb7
+  // ========== l8 ==========
+  fold acc(struct$m_std$$boxed$$Box$struct$m_Node$struct$m_std$$alloc$$Global(_1.val_ref.enum_More.f$0), read$())
+  fold acc(m_List$_beg_$_end_More(_1.val_ref.enum_More), read$())
+  fold acc(m_List$_beg_$_end_(_1.val_ref), read$())
+  // drop Acc(_3.val_ref, write) (Acc(_3.val_ref, write))
+  // drop Acc(_6.tuple_0, write) (Acc(_6.tuple_0, write))
+  // drop Acc(_4.val_int, write) (Acc(_4.val_int, write))
+  // drop Acc(_6.tuple_1.val_bool, write) (Acc(_6.tuple_1.val_bool, write))
+  // drop Acc(_6.tuple_1, write) (Acc(_6.tuple_1, write))
+  goto l1
+  label l0
+  // ========== l1 ==========
+  // MIR edge bb0 --> bb1
+  // ========== bb1 ==========
+  __t5 := true
+  // [mir] falseEdge -> [real: bb4, imaginary: bb2]
+  // ========== bb4 ==========
+  __t6 := true
+  // [mir] _0 = const 0_usize
+  _0 := builtin$havoc_ref()
+  inhale acc(_0.val_int, write)
+  _0.val_int := 0
+  // [mir] goto -> bb7
+  goto l1
+  label l1
+  // ========== bb7 ==========
+  __t7 := true
+  // [mir] return
+  // ========== return ==========
+  // Target of any 'return' statement.
+  // Exhale postcondition
+  label l9
+  // Fold predicates for &mut args and transfer borrow permissions to old
+  // obtain acc(m_List$_beg_$_end_(_1.val_ref), write)
+  _old$pre$0 := _1.val_ref
+  // Fold the result
+  fold acc(usize(_0), write)
+  // obtain acc(usize(_0), write)
+  // Assert possible strengthening
+  // Assert functional specification of postcondition
+  assert (unfolding acc(usize(_0), write) in _0.val_int >= 0)
+  // Assert type invariants
+  // Exhale permissions of postcondition (1/3)
+  exhale acc(m_List$_beg_$_end_(_old$pre$0), read$())
+  // Exhale permissions of postcondition (2/3)
+  exhale acc(usize(_0), write)
+  // Exhale permissions of postcondition (3/3)
+  goto end_of_method
+  label return
+  // ========== bb3 ==========
+  __t1 := true
+  // [mir] unreachable
+  goto end_of_method
+  label end_of_method
+}
+
+method builtin$havoc_bool() returns (ret: Bool)
+
+
+method builtin$havoc_int() returns (ret: Int)
+
+
+method builtin$havoc_ref() returns (ret: Ref)

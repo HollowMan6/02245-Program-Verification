@@ -1,0 +1,14 @@
+method main(M: Int, N: Int)
+    returns (res: Int, m: Int)
+    requires N > 0 && M > 0
+    ensures M == res * N + m
+{
+    res := 0 
+    m := M 
+    while (m >= N) 
+        invariant M == res * N + m
+    {
+        m := m - N
+        res := res + 1
+    }
+}

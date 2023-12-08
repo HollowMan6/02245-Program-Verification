@@ -1,0 +1,16 @@
+field val: Int
+
+method foo()
+{
+  var x: Ref 
+  x := new(val)
+  var y: Ref
+
+  assume x != null && x.val == 5
+
+  y := x 
+
+  y.val := 7   
+   
+  assert y.val == 5
+}

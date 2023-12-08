@@ -1,0 +1,44 @@
+/*
+Define your encoding of while loops with break commands below.
+// Need to work on this
+encode[while (G) invariant I { C }] = 
+  // Initialize a variable to control the loop
+  var loop_continue: bool := true;
+
+  // Start the loop
+  while (loop_continue && G)
+    invariant I
+  {
+    if (G) {
+      C; // Execute the loop body
+    }
+
+    // Check for a break condition
+    if (<break condition>) {
+      loop_continue := false; // Set the control variable to false to exit the loop
+    }
+  }   
+encode[break] =
+  // Set the control variable to false to exit the loop
+  loop_continue := false;
+*/
+
+method findOccurrence(s: Seq[Int], e: Int) returns (res: Int)
+ ensures res > -1 ==> res < |s| && s[res] == e
+{
+ var i: Int := 0
+ res := -1
+  var loop_continue: Bool := true; // Initialize the control variable
+
+ while (loop_continue &&  i < |s|)
+   invariant i >= 0 && i <= |s|
+   invariant (res == -1 || (res > -1 ==> res < i && s[res] == e))
+ {
+   if (s[i] == e) {
+     res := i
+     // BREAK
+     loop_continue := false; // Encoding of break statement
+   }
+   i := i + 1
+ }
+}

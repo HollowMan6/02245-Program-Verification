@@ -1,0 +1,67 @@
+domain X {
+    function sorted(xs: Seq[Int]): Bool
+
+    axiom { forall ys: Seq[Int] :: |ys| <=1 ==> sorted(ys) == true }
+    // ROBERTO: You should not recurse here, the quantifier already 
+    // includes every pair of elements, and adding this recursive portion      
+    // makes the function not terminate (which makes viper unsound)
+    axiom { forall i: Int, j:Int, ys: Seq[Int] :: (0 <= i <= j < |ys|) ==> (ys[i] <= ys[j] && sorted(ys[j..]))}
+}
+
+
+// sanity check
+method lemma_ascending_order(xs: Seq[Int], i: Int, j: Int)
+    requires sorted(xs)
+    requires 0 <= i && i <= j && j < |xs|
+    ensures xs[i] <= xs[j]
+    // decreases i + j
+{
+    // ROBERTO: Since your definition of sorted says the same thing as this lemma
+    // the body can be left empty and it should still verify
+    // check if this can be done with recursion since we haven't looked into loops yet.
+    var k: Int := i;
+
+
+    while (k < j && k >=0 ) {
+        assert  0 <= k < j; // Ensure k is within bounds
+        assert 0 <= k + 1 < |xs|; // Ensure k+1 is within bounds
+        assert xs[k] <= xs[k + 1];
+        k := k + 1;
+    }
+}
+
+method insertion_sort(xs: Seq[Int]) returns (ys: Seq[Int])
+    ensures sorted(ys)
+    ensures |ys| == |xs|
+{
+    //Need to work on this.
+    if (|xs| == 0) {
+        ys := Seq[Int]()
+
+    } else {
+        ys := insertion_sort(xs[1..])
+        ys := insert(xs[0], ys)
+
+    }
+}
+
+
+
+method insert(x: Int, xs: Seq[Int]) returns (ys: Seq[Int])
+    requires sorted(xs)
+    ensures sorted(ys)
+    ensures |ys| == |xs| + 1
+{
+    // Need to work on this.
+    if (|xs| == 0) {
+        ys := Seq(x)
+    } else {
+        var y:Int := xs[0]
+        if (x < y) {
+            ys := Seq(x) ++ xs
+        } else {
+            ys := insert(x, xs[1..])
+            ys := Seq(y) ++ ys
+        }
+    }
+}

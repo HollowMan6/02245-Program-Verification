@@ -1,0 +1,65 @@
+import "ArrayPrelude.vpr"
+
+// ----------------------------------------------------------------------------------------------------------------------
+
+
+method left(a: Array, mid: Int) 
+    requires arraySeg(a, 0, mid)
+    requires 0 <= mid && mid <= len(a)
+    ensures  arraySeg(a, 0, mid)
+    ensures  forall j: Int :: 0 <= j && j < mid 
+                ==> lookup(a, j) == old(lookup(a, j)) + 1
+{
+    var i: Int := 0
+    while(i < mid)
+        invariant 0 <= i && i <= mid
+        invariant arraySeg(a, 0, mid)
+        invariant forall j: Int :: 0 <= j && j < i ==> lookup(a, j) == old(lookup(a, j)) + 1
+        invariant forall j: Int :: i <= j && j < mid ==> lookup(a, j) == old(lookup(a, j))
+    {
+        update(a, i, lookup(a, i)+1) // A[i] := A[i] + 1
+        i := i + 1
+    }
+}
+
+method right(a: Array, mid: Int) 
+    requires arraySeg(a, mid, len(a))
+    requires 0 <= mid
+    ensures  arraySeg(a, mid, len(a))
+    ensures  forall j: Int :: mid <= j && j < len(a) ==> lookup(a, j) == old(lookup(a, j)) + 1
+    /*
+{
+    var i: Int := mid
+    while(i < len(a))
+        invariant arraySeg(a, mid, len(a))
+        invariant forall j: Int :: mid <= j && j < i ==> lookup(a, j) == old(lookup(a, j)) + 1
+    {
+        update(a, i, lookup(a, i)+1)
+        i := i + 1
+    }
+}
+*/
+
+
+method incrementAll(a: Array)
+    requires array(a)
+    ensures  array(a)
+    ensures  forall j: Int :: 0 <= j && j < len(a) ==> lookup(a, j) == old(lookup(a, j)) + 1
+{
+    var mid: Int := len(a) / 2
+    
+    label branch
+    // precondition of left block
+    exhale arraySeg(a, 0, mid) && mid <= len(a)
+    // precondition of right block
+    exhale arraySeg(a, mid, len(a)) && 0 <= mid
+
+    // postcondition of left block
+    inhale  arraySeg(a, 0, mid)
+    inhale  forall j: Int :: 0 <= j && j < mid ==> lookup(a, j) == old[branch](lookup(a, j)) + 1
+
+    // postcondition of right block
+    inhale arraySeg(a, mid, len(a))
+    inhale forall j: Int :: mid <= j && j < len(a) ==> lookup(a, j) == old[branch](lookup(a, j)) + 1
+}
+

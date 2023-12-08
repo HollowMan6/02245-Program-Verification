@@ -1,0 +1,74 @@
+field left: Ref
+field right: Ref
+
+predicate tree(this: Ref) {
+    acc(this.left) && acc(this.right) && 
+    (this.left != null ==> tree(this.left)) && 
+    (this.right != null ==> tree(this.right))
+}
+
+define optHeight(t) (
+    t == null ? 0 : 1 + depth(t)
+)
+
+define max(a,b) (
+    (a > b ? a : b)
+)
+
+function depth(this: Ref): Int
+    requires this != null ==> tree(this)
+{
+    this == null ? -1 : 
+    (unfolding tree(this) in max(optHeight(this.left), optHeight(this.right)))
+}
+
+// ----------------------------------------------------------------------------------------------------------------------
+
+field thisArg: Ref
+field joinable: Bool
+
+method parDepth(this: Ref) returns (res: Int)
+    requires this != null ==> tree(this)
+    ensures  this != null ==> tree(this)
+    ensures  res == depth(this)
+{
+    if(this == null) {
+        res := -1
+    } else {
+        var r1: Int
+        var r2: Int
+        var t1: Ref
+        var t2: Ref
+
+        unfold tree(this)
+
+        // t1 := fork parDepth(this.left)
+        t1 := new(thisArg)
+        t1.thisArg := this.left
+        label f1
+        exhale this.left != null ==> tree(this.left)
+        inhale acc(t1.joinable)
+
+        // t2 := fork parDepth(this.right)
+        t2 := new(thisArg)
+        t2.thisArg := this.right
+        label f2
+        exhale this.right != null ==> tree(this.right)
+        inhale acc(t2.joinable)
+
+        // r1 := join t1
+        exhale acc(t1.joinable)
+        inhale t1.thisArg != null ==> tree(t1.thisArg)
+        inhale r1 == depth(t1.thisArg)
+
+        // r2 := join t1
+        exhale acc(t2.joinable)
+        inhale t2.thisArg != null ==> tree(t2.thisArg)
+        inhale r2 == depth(t2.thisArg)
+
+        res := max(r1, r2) + 1
+        fold tree(this)
+    }
+}
+
+

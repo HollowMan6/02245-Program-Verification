@@ -1,0 +1,33 @@
+domain X {
+    function Fac(n: Int): Int 
+    function Fac0(n: Int): Int
+
+    axiom {
+        forall n: Int :: {Fac(n)}
+            n >= 0 ==> Fac(n) == (
+                (n <= 1) ? 1 : n * Fac0(n-1)
+            )
+    }
+}
+
+method client() 
+{
+    var n: Int
+    assume n >= 0
+    assert Fac(n) != 0
+}
+
+function Fac2(n: Int): Int 
+    requires n >= 0
+{
+    (n <= 1) ? 1 : n * Fac2(n-1)    
+}
+
+method client2() 
+{
+    var n: Int
+    assume n >= 0
+    assert Fac2(n) != 0
+}
+
+// TODO

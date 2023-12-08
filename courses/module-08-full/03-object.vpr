@@ -1,0 +1,23 @@
+field val: Int
+
+method foo(cell: Ref) returns (res: Ref)
+  requires acc(cell.val)
+  ensures  acc(cell.val) && cell.val == 5
+{
+  // assert cell != null
+
+  res := new(*)
+  res.val := 7
+
+  cell.val := 5
+}
+
+method client()
+{
+  var c: Ref 
+  c := new(*)
+  var r: Ref 
+
+  r := foo(c)
+  assert r.val == 7
+}

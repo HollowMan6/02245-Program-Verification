@@ -1,0 +1,21 @@
+field f: Int 
+
+method free(x: Ref)
+  requires acc(x.f)
+  ensures true
+
+
+method client()
+{
+  var x: Ref 
+  var y: Ref
+  x := new(f)
+  y := new(f)
+  y.f := 17
+
+  free(x)
+
+  assert perm(x.f) == 0/1
+  assert y.f == 17
+
+}

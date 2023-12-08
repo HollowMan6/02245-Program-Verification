@@ -1,0 +1,157 @@
+
+// Array API
+//
+// These methods are provided as an API for manipulating arrays. You should not
+// modify them.
+predicate array(self: Ref)
+function array_len(self: Ref): Int
+    requires array(self)
+function array_read(self: Ref, idx: Int): Int
+    requires array(self)
+    requires 0 <= idx && idx < array_len(self)
+method array_write(self: Ref, idx: Int, val: Int)
+    requires array(self)
+    requires 0 <= idx && idx < array_len(self)
+    ensures array(self)
+    ensures array_len(self) == old(array_len(self))
+    ensures forall i: Int :: {array_read(self, i)} 0 <= i && i < array_len(self) && i != idx ==>
+        array_read(self, i) == old(array_read(self, i))
+    ensures array_read(self, idx) == val
+
+// PART 1: Circular buffer predicate
+//
+// Define a predicate for a circular buffer. You may define new fields. You may
+// add arguments or heap-based functions for abstraction.
+field head: Int
+field tail: Int
+predicate cb(buffer: Ref) {
+    acc(buffer.head) 
+    && acc(buffer.tail) 
+    && array(buffer)
+    && array_len(buffer) > 0 
+    && 0 <= buffer.head && buffer.head < array_len(buffer) 
+    && 0 <= buffer.tail && buffer.tail < array_len(buffer)
+}
+
+// PART 2.1: Read method
+
+// Use the cb predicate you defined to implement a method which reads the first
+// value from the circular buffer, assuming there is one available as a pre-
+// condition.
+method cb_read(buf: Ref)
+    returns (res: Int)
+    requires cb(buf)
+    requires unfolding cb(buf) in  buf.head != buf.tail
+    ensures cb(buf) 
+    ensures unfolding 
+    cb(buf) in buf.head == (old( unfolding cb(buf) in buf.head) + 1) 
+    % array_len(old( unfolding cb(buf) in buf))
+{
+    unfold cb(buf)
+    res := array_read(buf, buf.head)
+    buf.head := (buf.head + 1) % array_len(buf)
+    fold cb(buf)
+}
+
+// PART 2.2: Write method
+
+// Use the cb predicate you defined to implement a method which writes a value
+// to the circular buffer, assuming there is room for it as a precondition.
+method cb_write(buf: Ref, val: Int)
+    requires cb(buf)
+    requires unfolding cb(buf) in (buf.tail + 1) % array_len(buf) != buf.head
+    ensures cb(buf)
+    ensures unfolding cb(buf) in buf.tail == (old( unfolding cb(buf) in buf.tail) + 1) % array_len(old( unfolding cb(buf) in buf))
+{
+    unfold cb(buf)
+    array_write(buf, buf.tail, val)
+    buf.tail := (buf.tail + 1) % array_len(buf)
+    fold cb(buf)
+}
+
+// PART 3: Linked list predicate
+
+// Define a predicate for a linked list of integers. You may define new fields.
+// You may add arguments or heap-based functions for abstraction.
+field next: Ref
+field elem: Int
+predicate list(this: Ref) {
+    acc(this.elem) && acc(this.next) &&
+    (this.next != null ==> list(this.next))
+}
+
+// PART 4: Circular buffer reverse using a linked list
+
+// Using the predicates you defined and the read/write methods, implement a
+// method which will reverse the contents of a circular buffer, utilising a
+// linked list as temporary storage.
+
+method list_create() returns (res: Ref)
+    ensures list(res)
+{
+    res := new(*)
+    res.next := null
+    fold list(res)
+}
+
+method list_prepend(this: Ref, e: Int) returns (res: Ref)
+    requires list(this)
+    ensures  list(res)
+{
+    res := new(*)
+    res.elem := e
+    res.next := this
+    fold list(res)
+}
+
+method cb_linked_list_writer(buf: Ref, this: Ref)
+    requires cb(buf) && list(this)
+    ensures cb(buf)
+    // This should ensure  this
+    // ensures get_content(buf) == old(get_reverse_content(buf))
+{
+    unfold list(this)
+    unfold cb(buf)
+    if (this.next != null && ((buf.tail + 1) % array_len(buf) != buf.head)) {
+        fold cb(buf)
+        cb_write(buf, this.elem)
+        cb_linked_list_writer(buf, this.next)
+        unfold cb(buf)
+    }
+    fold cb(buf)
+}
+
+method cb_linked_list_reverse(buf:Ref, this:Ref) returns (res: Ref)
+    requires list(this) && cb(buf)
+    ensures cb(buf) && list(res)
+    // This should ensure the elements in the list are the same as buffer elements in reverse. 
+    // ensures get_reverse_content(buf) == unfolding cb(buf) in list_content(res)
+{
+    unfold cb(buf)
+    var list_head:Ref := this
+    if (buf.head != buf.tail) {
+        fold cb(buf)
+        var val: Int := cb_read(buf)
+        list_head := list_prepend(list_head,val)
+        res := cb_linked_list_reverse(buf, list_head)
+        unfold cb(buf)
+    } else {
+        res := list_head
+    }
+    fold cb(buf)
+    
+}
+
+
+
+method cb_reverse(buf: Ref)
+    requires cb(buf)
+    ensures cb(buf)
+    // ensures get_content(buf) == old(get_reverse_content(buf))
+
+{
+    var list_head: Ref:= list_create()
+    var res: Ref := cb_linked_list_reverse(buf, list_head)
+    cb_linked_list_writer(buf, res)
+}
+// ensures unfolding cb(buf) in buf.head == buf.tail

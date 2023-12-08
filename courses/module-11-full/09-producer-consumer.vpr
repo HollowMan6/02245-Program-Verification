@@ -1,0 +1,70 @@
+// shared buffer
+field val: Ref
+field isLock: Bool
+
+define Inv(this) (
+    acc(this.val)
+)
+
+define share(this) {
+    exhale Inv(this)
+    inhale acc(this.isLock, wildcard)
+}
+
+define acquire(this) {
+    assert acc(this.isLock, wildcard)
+    inhale Inv(this)
+}
+
+define release(this) {
+    exhale Inv(this)
+}
+
+method produce(buf: Ref)
+    requires acc(buf.isLock, wildcard)
+    ensures  false
+{
+    while(true) 
+      invariant acc(buf.isLock, wildcard)
+    {
+        acquire(buf)
+        if(buf.val == null) {
+            var p: Ref
+            p := new()
+            buf.val := p
+        }
+        release(buf)
+  }
+}
+
+method consume(buf: Ref)
+    requires acc(buf.isLock, wildcard)
+{
+    while(true) 
+        invariant acc(buf.isLock, wildcard)
+    {
+        acquire(buf)
+        if(buf.val != null) {
+            buf.val := null
+        }
+        release(buf)
+  }
+}
+
+
+method client()
+{
+    var buf: Ref
+    buf := new(val)
+    share(buf)
+
+    // fork producers
+    exhale acc(buf.isLock, wildcard)
+    exhale acc(buf.isLock, wildcard)
+
+    // fork consumers
+    exhale acc(buf.isLock, wildcard)
+    exhale acc(buf.isLock, wildcard)
+
+    // never joined again
+}

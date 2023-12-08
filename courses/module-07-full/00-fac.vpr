@@ -1,0 +1,23 @@
+domain X {
+
+ function Fac(n: Int): Int
+ 
+ axiom {
+   forall n: Int :: 
+     n >= 0 ==> 
+       Fac(n) == (n <= 1 ? 1 : n * Fac(n-1))
+ }
+ 
+}
+
+method client1() {
+  // TODO
+}
+
+method client2() {
+  // TODO
+}
+
+method client3() {
+  // TODO
+}

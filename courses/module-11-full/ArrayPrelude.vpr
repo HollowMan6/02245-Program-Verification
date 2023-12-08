@@ -1,0 +1,38 @@
+/* 
+ * Encoding of integer arrays 
+ * can be used in other Viper files in the same directory via import "ArrayPrelude.vpr"
+ */
+field val: Int // for integer arrays
+domain Array {
+    function loc(a: Array, i: Int): Ref
+    function len(a: Array): Int
+    function first(r: Ref): Array
+    function second(r: Ref): Int
+
+    axiom injectivity {
+        forall a: Array, i: Int :: {loc(a, i)}
+        first(loc(a, i)) == a && second(loc(a, i)) == i
+    }
+
+    axiom length_nonneg {
+        forall a: Array :: len(a) >= 0
+    }
+}
+
+define lookup(a, i) 
+    loc(a, i).val
+
+define update(a, i, e) {
+    loc(a, i).val := e
+}
+
+define array(a)
+    (forall i: Int :: {loc(a, i)}  0 <= i && i < len(a) ==> acc(loc(a, i).val)) 
+
+define arraySeg(a, f, t)
+    (forall i: Int :: {loc(a, i)}  f <= i && i < t && i < len(a) ==> acc(loc(a, i).val)) 
+
+define alloc(a, l) {
+    inhale array(a) && len(a) == l
+}
+

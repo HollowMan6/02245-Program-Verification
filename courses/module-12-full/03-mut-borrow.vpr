@@ -1,0 +1,29 @@
+field val: Int 
+
+method swap(x: Ref, y: Ref)
+    requires acc(x.val) && acc(y.val)
+    ensures acc(x.val) && acc(y.val)
+{
+    var tmp: Int 
+    tmp := x.val
+    x.val := y.val
+    y.val := tmp
+}
+
+method main()
+{
+    var a: Int := 19
+    var b: Int := 23
+    
+    var x: Ref 
+    x := new(val)
+    x.val := a
+
+    var y: Ref 
+    y := new(val)
+    y.val := b
+
+    swap(x, y)   
+
+    // swap(x, x) FAILS
+}

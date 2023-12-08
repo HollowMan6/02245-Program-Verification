@@ -1,0 +1,28 @@
+// Step three: Encode S in the next language layer 
+// by transforming the program into
+// dynamic single assignment form (DSA)
+method main()
+{
+    // preamble
+    var x0: Int 
+    var y0: Int
+    var z0: Int 
+    var z1: Int 
+    var z2: Int 
+    var star: Bool
+
+    assume x0 >= 0 && y0 >= 0
+
+    z0 := x0 - y0
+    if (star) {
+        assume z0 < 0
+        z1 := z0 + y0
+        z2 := z1 + 2 * x0
+    } else {
+        assume !(z0 < 0)
+        z1 := z0 - x0
+        z2 := z1 + 4 * y0
+    }
+
+    assert z2 <= 3 * x0 && z2 <= 3 * y0 && (z2 == 3 * x0 || z2 == 3 * y0)
+}

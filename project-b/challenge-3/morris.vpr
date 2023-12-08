@@ -1,0 +1,104 @@
+field left: Ref
+field right: Ref
+field parent: Ref
+field data: Int
+field mark: Bool
+field shape: Bool
+
+predicate tree(this: Ref) {
+    acc(this.left) && acc(this.right) && acc(this.parent) && acc(this.data) && acc(this.mark) &&
+    (this.left != null ==> tree(this.left)) && 
+    (this.right != null ==> tree(this.right)) &&
+    (this.parent != null ==> tree(this.parent))
+}
+
+define max(a,b) (
+    (a > b ? a : b)
+)
+
+method markTree(root: Ref, s_x: Set[Ref])
+  requires tree(root)
+
+  // mark <-- true
+  // left <-- right
+  // right <-- parent
+  // parent <-- left
+  
+  // The resulting data structure is again a binary tree with parent pointers.
+    // We tried to prove this with tree preicate in the while invirant, but it
+    // turned out to be timeout, so it can be hard to prove it directly.
+
+  // The resulting tree contains the same nodes as the initial tree.
+    // We just need to ensure that all nodes in the s_x are in the old s_x
+    // and all nodes in the old s_x are still in the current s_x.
+
+  // The shape of the resulting tree is the same as the initial tree, i.e. every node points to the same nodes as in the original tree.
+    // It can be provable by adding a boolean field to store if the shape of the node has been changed,
+    // and reset the flag when it gets back to the original shape (How to do that can be hard).
+    // We can add a postcondition of the method to ensure that the shape of all nodes in s_x are reset to false.
+
+  // All nodes in the resulting tree are marked.
+    // We can add a postcondition of the method to ensure that all nodes in s_x are marked.
+
+  // The implementation visits the nodes of the initial tree in-order.
+    // This can be straightforward to prove if compared to the in-order traversal of a binary tree with traditional recursive way in sequence.
+
+  // The implementation is memory safe.
+    // We ensure that the implementation does not access any node that is not part of the tree.
+
+  // Inspiration from https://ethz.ch/content/dam/ethz/special-interest/infk/chair-program-method/pm/documents/Education/Theses/Severin_Muenger_MA_report.pdf
+  requires forall r: Ref :: acc(r.parent, max((r == root ? write : none), (r in s_x ? write : none)))
+  requires (forall r: Ref :: acc(r.right, max((r == root ? write : none), (r in s_x ? write : none))))
+  requires forall r: Ref :: acc(r.left, max((r == root ? write : none), (r in s_x ? write : none)))
+  requires forall r: Ref :: acc(r.mark, max((r == root ? write : none), (r in s_x ? write : none)))
+  requires forall r: Ref :: acc(r.shape, max((r == root ? write : none), (r in s_x ? write : none)))
+  requires root != null ==> (root in s_x)
+  requires forall r: Ref :: { (r in s_x), r.left } (r in s_x) && r != null && r.left != null ==> (r.left in s_x)
+  requires forall r: Ref :: { (r in s_x), r.parent } (r in s_x) && r != null && r.parent != null ==> (r.parent in s_x)
+  requires forall r: Ref :: { (r in s_x), r.right } (r in s_x) && r != null && r.right != null ==> (r.right in s_x)
+  ensures tree(root)
+  ensures forall r: Ref :: (r in s_x) ==> (r in old(s_x)) && (r in old(s_x)) ==> (r in s_x)
+  ensures forall r: Ref :: { (r in s_x), r.mark } (r in s_x) ==> r != null
+  ensures forall r: Ref :: { (r in s_x), r.shape } (r in s_x) ==> r != null
+  {
+  var x: Ref
+  var y: Ref
+  x := root
+
+  // this is a do-while loop; we have extracted the first iteration
+  x.mark := true
+  if (x.left == null && x.right == null) {
+    y := x.parent
+  }else{
+    y := x.left
+
+    x.left := x.right
+    x.right := x.parent
+    x.parent := y
+  }
+  x := y
+
+  while (x != null)
+    invariant forall r: Ref :: acc(r.parent, (r in s_x ? write : none))
+    invariant forall r: Ref :: acc(r.right, (r in s_x ? write : none))
+    invariant forall r: Ref :: acc(r.left, (r in s_x ? write : none))
+    invariant forall r: Ref :: acc(r.mark, (r in s_x ? write : none))
+    invariant x != null ==> (x in s_x)
+    invariant forall r: Ref :: { (r in s_x),r.parent } (r in s_x) && r != null && r.parent != null ==> (r.parent in s_x)
+    invariant forall r: Ref :: { (r in s_x),r.right } (r in s_x) && r != null && r.right != null ==> (r.right in s_x)
+    invariant forall r: Ref :: { (r in s_x),r.left } (r in s_x) && r != null && r.left != null ==> (r.left in s_x)
+    // Timeout
+    // invariant x != null ==> tree(x)
+  {
+    x.mark := true
+    if (x.left == null && x.right == null) {
+      y := x.parent
+    }else{
+      y := x.left
+      x.left := x.right
+      x.right := x.parent
+      x.parent := y
+    }
+    x := y
+  }
+}

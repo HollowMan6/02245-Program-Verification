@@ -1,0 +1,78 @@
+domain X {
+   // uninterpreted function
+   function F(x: Int): Int 
+
+   function sumUp(n: Int, m: Int): Int
+
+   function sumDown(n: Int, m: Int): Int
+
+    axiom {
+      // ROBERTO: Be careful, note that if you call sumUp(2,1)
+      // the function will not terminate. This does not really create 
+      // you any problem, so that's ok, but you could have also written
+      // that the sum from 2 to 0 is 0!
+        forall n: Int, m: Int :: sumUp(n, m) == (
+          m == n  ?  0 : F(n) + sumUp(n+1,m)
+        )
+    } 
+
+        axiom {
+        forall n: Int, m: Int :: sumDown(n, m) == (
+          m == n ? 0 : F(m-1) + sumDown(n,m -1)
+        )
+    }
+}
+
+method lemmaAux(n: Int, m: Int)
+  requires n <= m
+  ensures sumUp(n, m) == sumDown(n, m)
+{
+  var i: Int := n;
+    while (i != m + 1)
+        invariant n <= i <= m
+    {
+        if (i == m) {
+            assert sumUp(i, m) == 0;
+            assert sumDown(i, m) == 0;
+        } else {
+            assert sumUp(i, m) == F(i) + sumUp(i + 1, m);
+            assert sumDown(i, m) == F(m - 1) + sumDown(i, m - 1);
+            i := i + 1;
+        }
+    }
+    // ROBERTO: This verifies because the loop never terminates
+    // Note, in fact, that you can assert false here!
+    // assert false
+}
+
+
+method lemmaSameSum(n: Int, m: Int)
+   requires n <= m
+   ensures sumUp(n,m) == sumDown(n,m)
+{
+   if (m == n) {
+    // Base case: When n equals m, both functions return 0.
+    assert sumUp(n, m) == 0;
+    assert sumDown(n, m) == 0;
+  } else {
+    // ROBERTO: The auxilliary lemma states the same things as this lemma, so why 
+    // not just replace the body of its method with the one of helper?
+    lemmaAux(n, m);
+  } 
+}
+
+method client(n: Int, m: Int) returns (sum: Int)
+   requires n <= m
+   ensures sum == sumUp(n, m)
+{
+  // This is ok :)
+   sum := 0
+   var i: Int := m
+   while (i != n)
+     invariant n <= i <= m
+     invariant sum == sumUp(i, m)
+   {
+       i := i - 1
+       sum := sum + F(i)
+   }
+}

@@ -1,0 +1,14 @@
+method toBinary(d: Int) returns (res: Int)
+    requires 0 <= d
+    ensures  d % 2 == res % 10
+{
+    res := toBinary(d/2)
+    res := res * 10 + (d % 2)
+}
+
+method client()
+{
+    var x: Int
+    x := toBinary(3)
+    assert x % 10 == 1 
+}

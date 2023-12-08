@@ -1,0 +1,18 @@
+define V(m) (m)
+
+method factorial(n: Int)    
+  returns (res: Int)
+  requires 0 <= n 
+  // decreases n <--- variant V
+{
+  var v: Int := V(n)
+  assert v >= 0
+
+  if (n == 0) {
+    res := 1
+  } else {
+    assert V(n-1) < v
+    res := factorial(n-1)
+    res := n * res
+  }
+}

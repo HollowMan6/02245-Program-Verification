@@ -1,0 +1,27 @@
+// Singleton
+field val: Int
+
+// Factory
+field cache: Ref
+field frac: Perm
+
+predicate factory(this: Ref) {
+    acc(this.cache) && acc(this.frac) && none < this.frac &&
+    (this.cache != null ==> acc(this.cache.val, this.frac))
+}
+
+method get(this: Ref) returns (s: Ref, p: Perm)
+    requires factory(this)
+    ensures  factory(this) && none < p && acc(s.val, p)
+{
+    unfold factory(this)
+    if(this.cache == null) {
+        s := new(val)
+        this.cache := s
+        this.frac := write
+    }
+    s := this.cache
+    this.frac := this.frac / 2
+    p := this.frac
+    fold factory(this)
+}

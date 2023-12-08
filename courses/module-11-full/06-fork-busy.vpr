@@ -1,0 +1,72 @@
+field next: Ref
+field elem: Int
+
+predicate list(this: Ref) {
+    acc(this.elem) && acc(this.next) && 
+    (this.next != null ==> list(this.next))
+}
+
+function content(this: Ref): Seq[Int]
+    requires list(this)
+{
+    unfolding list(this) in (this.next == null ? Seq[Int]() : Seq(this.elem) ++ content(this.next))
+}
+
+method contains(this: Ref, v: Int) returns (res: Bool)
+    requires list(this)
+    ensures  list(this)
+    ensures  res == (v in content(this))
+
+// ----------------------------------------------------------------------------------------------------------------------
+
+field thisArg: Ref
+field vArg: Int
+
+method busy(courses: Ref, seminars: Ref, today: Int) returns (res: Bool)
+    requires list(courses) && list(seminars)
+    ensures  list(courses) && list(seminars)
+    ensures  res == (today in content(courses) || today in content(seminars))
+{
+    var r1: Bool
+    var r2: Bool
+    var t1: Ref
+    var t2: Ref
+
+    // t1 := fork contains(courses, today)
+    t1 := new(thisArg, vArg)
+    t1.thisArg := courses
+    t1.vArg := today
+    exhale list(courses)
+
+    // t2 := fork contains(seminars, today)
+    t2 := new(thisArg, vArg)
+    t2.thisArg := seminars
+    t2.vArg := today
+    exhale list(seminars)
+
+    // r1 := join t1
+    inhale list(t1.thisArg)
+    inhale r1 == (t1.vArg in content(t1.thisArg))
+
+    // joining t1 twice is unsound!!!
+    // r1 := join t1
+    inhale list(t1.thisArg)
+    inhale r1 == (t1.vArg in content(t1.thisArg))
+    assert unfolding list(t1.thisArg) in unfolding list(t1.thisArg) in false
+
+    // r2 := join t2
+    r2 := joiner(t2)
+    res := r1 || r2
+
+    inhale list(t1.thisArg)
+}
+
+method joiner(t2: Ref) returns (res: Bool)
+    requires acc(t2.thisArg) && acc(t2.vArg)
+    ensures  list(old(t2.thisArg))
+    ensures  res == (old(t2.vArg) in content(old(t2.thisArg)))
+{
+    // res := join t2
+    inhale list(t2.thisArg)
+    inhale res == (t2.vArg in content(t2.thisArg))
+}

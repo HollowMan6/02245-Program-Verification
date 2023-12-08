@@ -1,0 +1,19 @@
+method factorial(n: Int) returns (res: Int)
+  requires 0 <= n
+  ensures  1 <= res && n <= res 
+{
+  if (n == 0) {
+    res := 1
+  } else {
+    res := factorial(n-1)
+    res := n * res
+  }
+}
+
+
+method client()
+{
+    var x: Int
+    x := factorial(5)
+    assert 5 <= x 
+}

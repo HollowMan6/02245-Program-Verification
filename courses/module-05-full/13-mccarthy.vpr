@@ -1,0 +1,20 @@
+define V(m) ((101-m < 0) ? 0 : 101-m) // macro defining variant
+
+method M(n: Int) returns (r: Int)
+  requires n >= 0
+  ensures 100 < n  ==> r == n - 10
+  ensures n <= 100 ==> r == 91
+{
+  var v: Int := V(n)
+  assert v >= 0
+
+  if (n > 100) {
+    r := n - 10
+  } else {
+    assert V(n+11) < v
+    r := M(n + 11)
+
+    assert V(r) < v
+    r := M(r)
+  }
+}

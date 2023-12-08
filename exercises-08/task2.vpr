@@ -1,0 +1,130 @@
+field dyn_fields: Map[Int, Int]
+field valid_fields: Set[Int]
+
+define NEW(x) {
+  x:= new(dyn_fields, valid_fields);
+  x.dyn_fields := Map();
+  x.valid_fields := Set();
+}
+
+define WRITE(x, f, v) {
+  if (HASATTR(x,f)) {
+    x.dyn_fields := x.dyn_fields[f:=v]
+  } else {
+    x.valid_fields := x.valid_fields union Set(f)
+    x.dyn_fields := x.dyn_fields[f:=v]
+  }
+}
+
+define DELETE(x, f) {
+  // ROBERTO: This would have made the DELETE fail when the field does not exist!
+  // assert f in x.valid_fields
+  x.valid_fields := x.valid_fields setminus Set(f)
+  x.dyn_fields := x.dyn_fields[f:=-1]
+}
+
+define HASATTR(x, f) (
+  f in x.valid_fields 
+)
+
+define READ(x, f) (
+  x.dyn_fields[f]
+)
+
+method main(n: Int)
+  requires n > 0
+{
+  var x: Ref
+  NEW(x)
+  assert !HASATTR(x, 2)
+
+  WRITE(x, 2, 15)
+  assert HASATTR(x, 2)
+
+  assert READ(x, 2) == 15
+  assert HASATTR(x, 2)
+  assert !HASATTR(x, 3)
+
+  WRITE(x, 3, 13)
+
+  assert READ(x, 3) == 13
+  assert READ(x, 2) == 15
+
+  DELETE(x, 2)
+
+  assert !HASATTR(x, 2)
+  assert HASATTR(x, 3)
+
+  WRITE(x, 3, 0)
+
+  assert READ(x, 3) == 0
+
+  DELETE(x, 3)
+
+  // ROBERTO: Note that this passes :)
+  // assert READ(x, 3) == -1
+  
+  // ROBERTO: and also this
+  // DELETE(x, 4)
+
+  var i: Int
+
+  i := 0
+  while (i < n)
+   invariant acc(x.valid_fields) && acc(x.dyn_fields)
+   invariant forall j: Int:: (0<=j && j<i ==>  j in x.dyn_fields && READ(x,j) == 0)
+  {
+    WRITE(x, i, 0)
+    i := i + 1
+  }
+
+  i := 0
+  while (i < n)
+   invariant acc(x.valid_fields) && acc(x.dyn_fields)
+   invariant forall k: Int:: (i<=k && k<n ==>  k in x.dyn_fields && READ(x,k) == 0)
+   invariant forall j: Int:: (0<=j && j<i ==>  j in x.dyn_fields && READ(x,j) == 2)
+  {
+    assert READ(x, i) == 0
+    WRITE(x, i, 2)
+    i := i + 1
+
+  }
+
+  i := 0
+  while (i < n)
+    invariant acc(x.valid_fields) && acc(x.dyn_fields)
+    invariant forall k: Int:: (i<=k && k<n ==>  k in x.dyn_fields && READ(x,k) == 2)
+  {
+    assert READ(x, i) == 2
+    DELETE(x, i)
+    i := i + 1
+  }
+
+}
+
+// ROBERTO: Note that your solution doesn't frame!
+method client2() {
+  var x: Ref
+  NEW(x)
+  WRITE(x, 0, 1)
+
+
+  var i: Int := 1
+  while (i < 3) 
+    invariant 1 <= i <= 3
+    invariant acc(x.valid_fields) && acc(x.dyn_fields)
+    invariant forall a: Int:: (1<=a<i ==>  a in x.dyn_fields && READ(x,a) == 5)
+    // ROBERTO: Without this 
+    // invariant 0 in x.dyn_fields && READ(x,0) == 1
+  {
+    WRITE(x, i, 5)
+    i := i+1
+  }
+
+  assert READ(x, 2) == 5
+  assert READ(x, 1) == 5
+  // ROBERTO This does not pass:
+  // assert READ(x, 0) == 1
+
+  // ROBERTO: as the whole map could be modified by the loop (you are giving it permission to)
+}

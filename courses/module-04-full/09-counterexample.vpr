@@ -1,0 +1,7 @@
+// for counterexamples, change the command line arguments of carbon to
+//  "customArguments": "--z3Exe $z3Exe$ --boogieExe $boogieExe$ --disableCaching --counterexample variables $fileToVerify$"
+method main() {
+  var x: Int
+
+  assert x * x > 0
+}

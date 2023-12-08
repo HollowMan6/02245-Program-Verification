@@ -1,0 +1,16 @@
+// try this out with carbon
+// explain why each assertion is (and why it should be or should not be)
+// reported as being potentially violated
+method main()
+{
+    var x: Int
+
+    // -------------
+
+    assume x > 3
+
+    assert x < 5
+    assert x == 4
+    assert x == 2       
+
+}

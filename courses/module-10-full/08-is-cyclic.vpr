@@ -1,0 +1,25 @@
+// class Node
+field next: Ref
+
+define list(nodes) (
+    forall n: Ref :: n in nodes ==> acc(n.next) && (n.next != null ==> n.next in nodes)
+)
+
+method isCyclic(nodes: Set[Ref], root: Ref) returns (res: Bool)
+    requires list(nodes)
+    requires root in nodes
+    ensures  list(nodes)
+{
+    var seen: Set[Ref] := Set(root)
+    var curr: Ref := root
+
+    while(curr.next != null && !(curr.next in seen))
+        invariant list(nodes)
+        invariant curr in nodes
+    {
+        seen := seen union Set(curr.next)
+        curr := curr.next
+    }
+
+    res := (curr.next != null)
+}

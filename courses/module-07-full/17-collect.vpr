@@ -1,0 +1,15 @@
+method collect(s: Seq[Int]) returns (res: Set[Int])
+  ensures forall j: Int :: 0 <= j && j < |s| ==> s[j] in res
+  ensures forall x: Int :: x in res ==> x in s
+{
+  res := Set[Int]()
+  var i: Int := 0
+  while (i < |s|)
+    invariant 0 <= i && i <= |s|
+    invariant forall j: Int :: 0 <= j && j < i ==> s[j] in res
+    invariant forall x: Int :: x in res ==> x in s
+  {
+    res := res union Set(s[i])
+    i := i + 1
+  }
+}

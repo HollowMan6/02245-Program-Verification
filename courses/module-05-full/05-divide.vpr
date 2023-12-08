@@ -1,0 +1,14 @@
+method divide(n: Int, d: Int) 
+  returns (q: Int, r: Int)
+  requires 0 <= n
+  requires 1 <= d
+  ensures  n == q * d + r
+{
+  if (n < d) {
+    q := 0
+    r := n
+  } else {
+    q, r := divide(n-d, d)
+    q := q + 1
+  }
+}

@@ -1,0 +1,21 @@
+method sum(n: Int) 
+  returns (res: Int) 
+  requires 0 <= n
+  ensures  res == n * (n+1) / 2
+{
+  if (n == 0) {
+    res := 0
+  } else {
+    res := sum(n-1)
+    res := res + n
+  }
+}
+
+method test()
+{
+    var r: Int
+    
+    r := sum(10)
+
+    assert r == 55
+}

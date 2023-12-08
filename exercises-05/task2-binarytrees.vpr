@@ -1,0 +1,107 @@
+domain X {
+
+    function mirror(t: Tree): Tree
+    function size(t: Tree): Int
+
+    axiom mirror_leaf {
+        forall x: Int :: mirror(leaf(x)) == leaf(x)
+    }
+    axiom mirror_node {
+        forall l: Tree, r: Tree ::
+            // ROBERTO: You should also mirror the child nodes :)
+            // mirror(node(l, r)) == node(mirror(r), mirror(l))
+            mirror(node(l, r)) == node(r, l)
+    }
+
+    axiom size_tree {
+        forall t: Tree ::
+        (is_leaf(t)) ? size(t) == 1 : size(t) == size(left(t)) + size(right(t)) + 1
+    }
+   
+}
+
+method lemma_mirror_mirror(t: Tree)
+    ensures mirror(mirror(t)) == t
+{
+    if (is_leaf(t)) {
+        // Base case: t is a leaf.
+        assert mirror(mirror(t)) == mirror(leaf(value(t)))
+        assert mirror(leaf(value(t))) == leaf((value(t)))
+        assert leaf((value(t))) == t
+    } else {
+        // Inductive case: t is a node.
+        var l: Tree := left(t);
+        var r: Tree := right(t);
+        assert t == node(l,r)
+        assert mirror(mirror(t)) == mirror(node(r, l))
+        // ROBERTO: With the correct mirror, you would need to also 
+        // recursively call the lemma, to prove it by induction
+    }
+}
+
+method lemma_mirror_size(t: Tree) 
+    ensures size(mirror(t)) == size(t)
+{
+    if (is_leaf(t)) {
+        assert size(mirror(t)) == size(leaf(value(t)))
+        assert size(leaf(value(t))) == 1
+        assert size(t) == 1
+    } else {
+        var l: Tree := left(t);
+        var r: Tree := right(t);
+        assert size(mirror(t)) == size(node(mirror(r), mirror(l)));
+        assert size(node(mirror(r), mirror(l))) == size(mirror(r)) + size(mirror(l)) + 1;
+        assert size(mirror(r)) == size(r)
+        assert size(mirror(l)) == size(l)
+        assert size(mirror(r)) + size(mirror(l)) + 1 == size(r) + size(l) + 1;
+        assert size(t) == size(r) + size(l) + 1;
+        // ROBERTO: With the correct mirror, you would need to also 
+        // recursively call the lemma, to prove it by induction
+    }
+
+}
+
+// no changes below
+domain Tree { 
+    
+    // constructors
+    function leaf(value: Int): Tree // <-- base case
+    function node(left: Tree, right: Tree): Tree // composite case
+
+    // discriminators (is_node is implicit via !is_leaf(t))
+    function is_leaf(t: Tree): Bool 
+
+    // destructors
+    function value(t: Tree): Int 
+    function left(t: Tree): Tree
+    function right(t: Tree): Tree
+
+    // axioms
+    axiom def_is_leaf {
+        forall x: Int :: is_leaf(leaf(x)) 
+    }
+
+    axiom def_not_is_leaf {
+        forall l: Tree, r: Tree :: !is_leaf(node(l,r))
+    }
+
+    axiom all_variants {
+        forall t: Tree ::
+            (is_leaf(t) && exists x: Int :: t == leaf(x))
+            || (!is_leaf(t) && exists l: Tree, r: Tree :: t == node(l, r))
+    }
+
+    axiom value_over_leaf {
+        forall x: Int :: value(leaf(x)) == x
+    }
+
+    axiom left_over_node {
+        forall l: Tree, r: Tree ::
+            left(node(l, r)) == l
+    }
+
+    axiom right_over_node {
+        forall l: Tree, r: Tree ::
+            right(node(l, r)) == r
+    }
+}

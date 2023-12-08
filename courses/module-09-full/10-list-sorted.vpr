@@ -1,0 +1,13 @@
+field next: Ref
+field elem: Int
+
+
+predicate list(this: Ref) {
+  acc(this.elem) && acc(this.next) && 
+  (this.next != null ==> list(this.next) && 
+  // TODO add the sortedness below
+      unfolding list(this.next) in 
+      (this.next.next != null ==> this.elem <= this.next.elem)
+  )
+}
+

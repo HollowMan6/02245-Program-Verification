@@ -1,0 +1,23 @@
+domain X {
+  function fac(x: Int): Int
+
+  axiom {
+    forall x: Int :: fac(x) == (x <= 1 ? 1 : x * fac(x-1))
+  }
+}
+
+method lemma_fac_pos(n: Int)
+  requires n >= 0
+  ensures fac(n) > 0
+{
+  var v: Int := n 
+  assert v >= 0
+  if (n == 0) { 
+    // induction base
+    // nothing to do
+  } else { 
+    assert n < v  // should fail
+    // apply induction hypothesis
+    lemma_fac_pos(n)
+  }
+}

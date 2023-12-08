@@ -1,0 +1,59 @@
+function foo(x: Int): Int
+{ 
+  x <= 0 ? 1 : foo(x - 2) + 3 
+}
+
+method lemma_foo_monotone(x: Int)
+  ensures x < foo(x)
+{
+  if (x <= 0) {
+    assert x < 1 && 1 <= foo(x)
+  } else {
+    assert x > 0
+    lemma_foo_monotone(x-2)
+  }
+}
+
+define V(x) ((x < 0) ? 0 : x)
+
+method lemma_foo_monotone_termination(x: Int)
+  ensures x < foo(x)
+  // decreases V(x)
+{
+  var v: Int := V(x); assert v >= 0 // <--- set up variant
+  if (x <= 0) {
+    assert x < 1 && 1 <= foo(x)
+  } else {
+    assert x > 0
+    assert V(x-2) < v // <--- variant decreases
+    lemma_foo_monotone(x-2)
+  }
+}
+
+method client(r: Int)
+{
+  var s: Int := foo(r)
+  lemma_foo_monotone(r)
+  lemma_foo_monotone(s)
+  var t: Int := foo(s)
+
+  assert 2 <= t - r
+}
+
+method client_detailed(r: Int)
+{
+  var s: Int := foo(r)
+  assert s == foo(r)
+  lemma_foo_monotone(r)
+  assert s == foo(r) && r < foo(r)
+  var t: Int := foo(s)
+  assert s == foo(r) && r < foo(r) && t == foo(s)
+  //assert s < foo(s)
+  lemma_foo_monotone(s)
+  assert s == foo(r) && r < foo(r) && t == foo(s) && s < foo(s)
+  assert t > foo(r) && foo(r) > r
+  assert t - foo(r) > 0 && foo(r) - r > 0
+  assert t - foo(r) >= 1 && foo(r) - r >= 1
+  assert t - foo(r) + foo(r) - r >= 1 + 1
+  assert 2 <= t - r
+}

@@ -1,0 +1,23 @@
+field x: Int
+field y: Int
+
+predicate Point(this: Ref) {
+    acc(this.x) && acc(this.y)
+}
+
+method sum(p: Ref, q: Ref) returns (res: Ref)
+    requires acc(Point(p), 1/2) && acc(Point(q), 1/2)
+    ensures acc(Point(p), 1/2) && acc(Point(q), 1/2)
+    ensures acc(Point(res))
+{
+    unfold acc(Point(p), 1/2)
+    unfold acc(Point(q), 1/2)
+
+    res := new(*)
+    res.x := p.x + q.x
+    res.y := p.y + q.y
+
+    fold acc(Point(p), 1/2)
+    fold acc(Point(q), 1/2)
+    fold acc(Point(res))
+}

@@ -1,0 +1,7 @@
+method cube(n: Int) 
+  returns (r: Int)
+  requires n >= 0
+  ensures r == n * n * n
+{
+  // TODO
+}

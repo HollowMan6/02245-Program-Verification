@@ -1,0 +1,7 @@
+method sqrt(n: Int) returns (r: Int)
+  requires n >= 0
+  ensures r * r <= n 
+  ensures n < (r+1) * (r+1)
+{
+  // TODO
+}

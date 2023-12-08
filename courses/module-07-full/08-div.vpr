@@ -1,0 +1,11 @@
+function div(n: Int, m: Int): Int 
+  requires m != 0
+  ensures result == n / m
+
+
+method client(x: Int, y: Int)
+  requires x >= 0
+{
+  // TODO
+  assert y > 0 ==> div(x,y) >= 0
+}

@@ -1,0 +1,32 @@
+method foo(p: Int) returns (r: Int)
+    requires 0 <= p
+    ensures r == p + 1
+
+method client()
+{
+    var x: Int := 4 
+
+    x := foo(x)
+
+    // fails: Viper uses a sound encoding
+    // assert false
+}
+
+method sound_encoding()
+{
+    var x: Int
+    var x_fresh: Int
+
+    x := 4 
+
+    assert true 
+
+    var p: Int := x
+
+    x := x_fresh // havoc
+
+    assume x == p + 1
+
+    assert false // should fail
+    
+}

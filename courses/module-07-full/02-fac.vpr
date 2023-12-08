@@ -1,0 +1,10 @@
+function Fac(n: Int): Int
+{
+  n <= 1 ? 1 : n * Fac(n-1)
+}
+
+method client()
+{
+  var x: Int := Fac(-1)
+  assert x * x > 0
+}

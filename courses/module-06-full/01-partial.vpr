@@ -1,0 +1,20 @@
+method main() {
+
+  while (true) {
+    assert true
+  }
+
+  assert false // VERIFIES due to partial correctness reasoning
+}
+
+/*
+ * this example also demonstrates that we search for the greatest fixed point
+ * when reasoning about partial correctness (with wlp).
+ * The equation for X = wlp[while (true) { assert true }](H) is
+ * X  =  (true ==> true && X) && (!true ==> H)
+ * which simplifies to 
+ * X  =  X.
+ * Since we reason about partial correctness, every state should be in the weakest liberal
+ * precondition of the above program, so the solution should be X = true.
+ */
+

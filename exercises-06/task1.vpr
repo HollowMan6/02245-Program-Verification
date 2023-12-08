@@ -1,0 +1,24 @@
+domain X {
+    function math_pow(n: Int, e: Int): Int
+
+    axiom {
+        forall n: Int, e: Int :: math_pow(n, e) == (
+            e == 0 ? 1 : n * math_pow(n, e - 1)
+        )
+    }
+}
+
+method pow(n: Int, e: Int) returns (res: Int)
+    requires e >= 0
+    ensures res == math_pow(n, e)
+{
+    var k: Int := 0
+    res := 1
+    while (k < e)
+    invariant 0 <= k <= e
+    invariant res == math_pow(n,k)
+    {
+        res:= n * res;
+        k:=k+1
+    }
+}

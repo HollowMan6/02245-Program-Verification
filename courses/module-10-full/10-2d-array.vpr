@@ -1,0 +1,52 @@
+field val: Int 
+
+// Two-dimensional array
+domain TwoDimArray {
+    function loc(a: TwoDimArray, i: Int, j: Int): Ref
+    function len1(a: TwoDimArray): Int
+    function len2(a: TwoDimArray): Int
+    function first(r: Ref): TwoDimArray
+    function second(r: Ref): Int
+    function third(r: Ref): Int
+
+    axiom injectivity {
+        forall a: TwoDimArray, i: Int, j: Int :: {loc(a, i, j)}
+        first(loc(a, i, j)) == a && second(loc(a, i, j)) == i && third(loc(a, i, j)) == j
+    }
+
+    axiom length_nonneg {
+        forall a: TwoDimArray :: len1(a) >= 0 && len2(a) >= 0
+    }
+}
+
+define lookup(a, i, j) 
+    loc(a, i, j).val
+
+define update(a, i, j, e) {
+    loc(a, i, j).val := e
+}
+
+define array(a)
+    (forall i: Int, j: Int :: {loc(a, i, j)}  0 <= i && i < len1(a) && 0 <= j && j < len2(a) ==> acc(loc(a, i, j).val)) 
+
+
+method reset(a: TwoDimArray)
+    requires array(a)
+    ensures  array(a)
+{
+    var k: Int := 0
+    while(k < len1(a))
+        invariant 0 <= k && k <= len1(a)
+        invariant array(a)
+    {
+        var l: Int := 0
+        while(l < len2(a))
+            invariant 0 <= l && l <= len2(a)
+            invariant array(a)
+        {
+            update(a, k, l, 0)
+            l := l + 1
+        }
+        k := k + 1
+    }
+}

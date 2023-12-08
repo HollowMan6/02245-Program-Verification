@@ -1,0 +1,45 @@
+field f: Int 
+
+method ex1()
+{
+  var x:Ref 
+
+  // assert Mask[x, f] == false
+  
+  inhale acc(x.f)
+
+  // assume !Mask[x, f]
+  // Mask[x, f] := true
+
+  assert false
+}
+
+method ex2()
+{
+  var x:Ref 
+
+  // assert Mask[x, f] == false
+  
+  inhale acc(x.f) && acc(x.f) // <--- false since && is separating conjunction
+
+  // broken down into two inhales
+
+  // assume !Mask[x, f]
+  // Mask[x, f] := true
+
+  // assume !Mask[x, f] <--- invalid assumption, equivalent to assume false 
+  // Mask[x, f] := true
+
+  assert false
+}
+
+method ex3()
+{
+  var x:Ref 
+  var y:Ref
+  
+  inhale acc(x.f) 
+  inhale acc(y.f)
+
+  assert x != y
+}

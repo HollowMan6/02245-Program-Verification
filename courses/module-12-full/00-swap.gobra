@@ -1,0 +1,11 @@
+package PV
+
+requires acc(x) && acc(y)
+ensures  acc(x) && acc(y)
+ensures  *x == old(*y) && *y == old(*x)
+func swap(x *int, y *int) {
+    tmp := *x
+    *x = *y
+    *y = tmp
+}
+

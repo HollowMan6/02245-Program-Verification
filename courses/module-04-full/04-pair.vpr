@@ -1,0 +1,16 @@
+domain Pair {
+  function cons(a: Int, b: Int): Pair
+  function first(p: Pair): Int
+  function second(p: Pair): Int
+
+  axiom { forall a: Int, b:Int :: first(cons(a,b)) == a }
+  axiom { forall a: Int, b:Int :: second(cons(a,b)) == b }
+}
+
+
+method main()
+{
+    var p: Pair;
+    p := cons(1,2);
+    assert second(p) > first(p)
+}

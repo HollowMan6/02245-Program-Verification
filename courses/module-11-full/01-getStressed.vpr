@@ -1,0 +1,51 @@
+field next: Ref
+field elem: Int
+
+predicate list(this: Ref) {
+    acc(this.elem) && acc(this.next) && 
+    (this.next != null ==> list(this.next))
+}
+
+function content(this: Ref): Seq[Int]
+    requires acc(list(this), 1/2)
+{
+    unfolding acc(list(this), 1/2) in (this.next == null ? Seq[Int]() : Seq(this.elem) ++ content(this.next))
+}
+
+method contains(this: Ref, v: Int) returns (res: Bool)
+    requires acc(list(this), 1/2)
+    ensures  acc(list(this), 1/2)
+    ensures  res == (v in content(this))
+
+// ----------------------------------------------------------------------------------------------------------------------
+
+method leftAndRight(el: Ref, today: Int) returns (res: Bool)
+    requires acc(list(el), 1/2)
+    ensures  acc(list(el), 1/2)
+    ensures  res == (today in content(el))
+{
+    res := contains(el, today)
+}
+
+method getStressed(exams: Ref, today: Int) returns (res: Bool)
+    requires list(exams)
+    ensures  list(exams)
+    ensures  res == (today in content(exams) || today+1 in content(exams))
+{
+    // precondition of left block
+    exhale acc(list(exams), 1/2)
+    // precondition of right block
+    exhale acc(list(exams), 1/2)
+
+    // postcondition of left block
+    var leftRes: Bool
+    inhale acc(list(exams), 1/2)
+    inhale leftRes == (today in content(exams))
+
+    // postcondition of right block
+    var rightRes: Bool
+    inhale acc(list(exams), 1/2)
+    inhale rightRes == (today+1 in content(exams))
+
+    res := leftRes || rightRes
+}

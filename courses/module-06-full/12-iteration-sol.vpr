@@ -1,0 +1,80 @@
+define I1(i,n) (i <= n) // TODO: replace true by your invariant
+define V1(i,n) (n-i) // TODO: replace 0 by your variant
+
+method incBelow(n:Int) returns (i:Int)
+  requires 0 <= n
+  ensures i == n
+  // decreases V1 (encoded below using V1)
+{
+  i := 0
+  while (i < n)
+    invariant I1(i,n)
+  {
+    var v: Int := V1(i,n); assert v >= 0
+    i := i + 1
+    assert V1(i,n) < v
+  }
+}
+
+
+/////////////////////////////////////////////////////////////////
+
+define I2(i) (0 <= i) // TODO: replace true by your invariant
+define V2(i) (i) // TODO: replace 0 by your variant
+
+method decAbove(n:Int) returns (i:Int)
+  requires 0 <= n
+  ensures i == 0
+  // decreases V2 (encoded below)
+{
+  i := n
+  while (0 < i)
+    invariant I2(i) // TODO
+  {
+    var v: Int := V2(i); assert v >= 0
+    i := i - 1
+    assert V2(i) < v
+  }
+}
+
+
+/////////////////////////////////////////////////////////////////
+
+define I3(i,n) (i <= n) // TODO: replace true by your invariant
+define V3(i,n) (n-i) // TODO: replace 0 by your variant
+
+method incDifferent(n:Int) returns (i:Int)
+  requires 0 <= n
+  ensures i == n
+  // decreases V3 (encoded below)
+{
+  i := 0
+  while (i != n)
+    invariant I3(i,n)
+  {
+    var v: Int := V3(i,n); assert v >= 0
+    i := i + 1
+    assert V3(i,n) < v
+  }
+}
+
+
+/////////////////////////////////////////////////////////////////
+
+define I4(i) (0 <= i) // TODO: replace true by your invariant
+define V4(i) (i) // TODO: replace 0 by your variant
+
+method decDifferent(n:Int) returns (i:Int)
+  requires 0 <= n
+  ensures i == 0
+  // decreases V4 (encoded below)
+{
+  i := n
+  while (i != 0)
+    invariant I4(i)
+  {
+    var v: Int := V4(i); assert v >= 0
+    i := i - 1
+    assert V4(i) < v
+  }
+}

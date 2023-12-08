@@ -1,0 +1,26 @@
+// Step two: Encode C in the next language layer (PL0)
+// Here, we need to encode the conditional if-then-else using assume and nondeterministic choice
+// To illustrate this in Viper, we need to declare a Boolean variable star.
+method main()
+{
+    // preamble
+    var x: Int 
+    var y: Int
+    var z: Int 
+    var star: Bool // needed to represent nondeterminism
+
+    assume x >= 0 && y >= 0
+
+    z := x - y
+    if (star) { // nondeterministic choice S1 [] S2
+        assume z < 0
+        z := z + y
+        z := z + 2 * x
+    } else {
+        assume !(z < 0)
+        z := z - x
+        z := z + 4 * y
+    }
+
+    assert z <= 3 * x && z <= 3 * y && (z == 3 * x || z == 3 * y)
+}

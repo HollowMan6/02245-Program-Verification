@@ -1,0 +1,8 @@
+method foo(x: Int, b: Bool) {
+  if(b) {
+    assert x == 7
+  } else {
+    assert x == 2
+    assert x > 0
+  }
+}

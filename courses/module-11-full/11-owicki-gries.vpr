@@ -1,0 +1,86 @@
+// Counter
+field val: Int
+field c1: Int
+field c2: Int
+field isLock: Bool
+
+define Inv(this) (
+    acc(this.val) &&
+    acc(this.c1, 1/2) && acc(this.c2, 1/2) &&
+    this.val == this.c1 + this.c2
+)
+
+define share(this) {
+    exhale Inv(this)
+    inhale acc(this.isLock, wildcard)
+}
+
+define acquire(this) {
+    assert acc(this.isLock, wildcard)
+    inhale Inv(this)
+}
+
+define release(this) {
+    exhale Inv(this)
+}
+
+method inc1(this: Ref) returns (f: Ref)
+    requires acc(this.isLock, wildcard) && acc(this.c1, 1/2)
+    ensures  acc(this.c1, 1/2) && this.c1 == old(this.c1) + 1
+{
+    acquire(this)
+    this.val := this.val + 1
+    this.c1 := this.c1 + 1
+    release(this)
+}
+
+method inc2(this: Ref) returns (f: Ref)
+    requires acc(this.isLock, wildcard) && acc(this.c2, 1/2)
+    ensures  acc(this.c2, 1/2) && this.c2 == old(this.c2) + 1
+{
+    acquire(this)
+    this.val := this.val + 1
+    this.c2 := this.c2 + 1
+    release(this)
+}
+
+field thisArg: Ref
+field joinable: Bool
+
+method client()
+{
+    var cell: Ref
+    cell := new(val, c1, c2)
+    cell.c1 := 0
+    cell.c2 := 0
+    cell.val := 0
+    share(cell)
+
+    // t1 := fork inc1(cell)
+    var t1: Ref
+    t1 := new(thisArg)
+    t1.thisArg := cell
+    label l1
+    exhale acc(cell.isLock, wildcard) && acc(cell.c1, 1/2)
+    inhale acc(t1.joinable)
+
+    // t2 := fork inc2(cell)
+    var t2: Ref
+    t2 := new(thisArg)
+    t2.thisArg := cell
+    label l2
+    exhale acc(cell.isLock, wildcard) && acc(cell.c2, 1/2)
+    inhale acc(t2.joinable)
+
+    // join t1
+    exhale acc(t1.joinable)
+    inhale acc(t1.thisArg.c1, 1/2) && t1.thisArg.c1 == old[l1](t1.thisArg.c1) + 1
+
+    // join t2
+    exhale acc(t2.joinable)
+    inhale acc(t2.thisArg.c2, 1/2) && t2.thisArg.c2 == old[l2](t2.thisArg.c2) + 1
+
+    acquire(cell)
+    assert cell.val == 2
+    release(cell)
+}

@@ -1,0 +1,27 @@
+// Illustration of encoding a loop as a tail recursive procedure
+
+// Function representing our invariant
+function I(z: Int, y: Int): Bool
+
+// Placeholder for some loop guard
+function Guard(): Bool
+
+// Abstract method modelling loop body
+method Body() returns (z: Int)
+
+method loop(x: Int, y: Int) returns (z: Int)
+  requires I(x,y) // notice substitution leads to I(x,y) instead of I(z,y)
+  ensures I(z,y) && !Guard()
+{
+  z := x // x read-only
+  if (Guard()) {
+    assert I(z,y) && Guard()
+
+    z := Body()
+    assume I(z,y) // hope: preserves I
+
+    z := loop(z, y)
+  } else {
+    // OK
+  }
+}

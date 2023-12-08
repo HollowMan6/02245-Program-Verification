@@ -1,0 +1,11 @@
+function F(): Bool
+  ensures false
+{
+  F()
+}
+
+method client()
+{
+  var x: Bool := F()
+  assert false
+}
